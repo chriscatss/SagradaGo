@@ -1,2 +1,2 @@
 # capstone
-sagrada parish-info-system
+sagradago parish-info-system
