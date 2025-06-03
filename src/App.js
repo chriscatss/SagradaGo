@@ -1,110 +1,222 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import LoginModal from './components/LoginModal';
-import HomePageLoggedOut from './pages/HomePageLoggedOut';
-import HomePageLoggedIn from './pages/HomepageLoggedIn';
-import EventsPage from './pages/EventsPage';
-import BookingPage from './pages/BookingPage';
-import DonatePage from './pages/DonatePage';
-import VolunteerPage from './pages/VolunteerPage';
-import ProfilePage from './pages/ProfilePage';
-import ViewBookingsPage from './pages/ViewBookingsPage';
-import DonationConfirmationPage from './pages/DonationConfirmationPage';
-import VolunteerConfirmationPage from './pages/VolunteerConfirmationPage';
-import VirtualTour from './pages/VirtualTour';
-import ProtectedRoute from './components/ProtectedRoute';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { CircularProgress, Box } from '@mui/material';
+import LoginModal from './config/UserAuth';
+import { useAdminAuth } from './context/AdminAuthContext';
+import { supabase } from './config/supabase';
+import ProtectedRoute from './config/ProtectedRoute';
+
+// Lazy load components
+const HomePageLoggedOut = lazy(() => import('./pages/HomePageLoggedOut'));
+const HomePageLoggedIn = lazy(() => import('./pages/HomePageLoggedIn'));
+const EventsPage = lazy(() => import('./pages/EventsPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ApprovedBookingsCalendar = lazy(() => import('./pages/ApprovedBookingsCalendar'));
+
+// Create a theme instance
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#E1D5B8',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+    background: {
+      default: '#f5f5f5',
+    },
+  },
+});
+
+// Loading component
+const LoadingFallback = () => (
+  <Box
+    display="flex"
+    justifyContent="center"
+    alignItems="center"
+    minHeight="100vh"
+  >
+    <CircularProgress />
+  </Box>
+);
 
 const AppContent = () => {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const { isAdmin, loading: adminLoading } = useAdminAuth();
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('userData');
+    navigate('/');
+  };
 
   useEffect(() => {
-    const authStatus = localStorage.getItem('isAuthenticated') === 'true';
-    setIsAuthenticated(authStatus);
-  }, []);
+    let mounted = true;
 
-  const handleLoginSuccess = () => {
+    const checkAuth = async () => {
+      try {
+        // First check localStorage for cached auth state
+        const cachedAuth = localStorage.getItem('isAuthenticated');
+        const cachedUserData = localStorage.getItem('userData');
+        
+        if (cachedAuth === 'true' && cachedUserData) {
+          if (mounted) {
+            setIsAuthenticated(true);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        // If no cache, check Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking auth status:', error);
+          if (mounted) {
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (session) {
+          const { data: userData, error: userError } = await supabase
+            .from('user_tbl')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userError) {
+            console.error('Error fetching user data:', userError);
+            if (mounted) {
+              setIsLoading(false);
+            }
+            return;
+          }
+
+          if (mounted) {
+            setIsAuthenticated(true);
+            localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('userData', JSON.stringify(userData));
+          }
+        }
+      } catch (error) {
+        console.error('Error in auth check:', error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        await checkAuth();
+      } else if (event === 'SIGNED_OUT') {
+        handleLogout();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, [handleLogout, navigate]);
+
+  const handleLoginSuccess = (userData) => {
     setIsAuthenticated(true);
-    setShowLogin(false);
     localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('userData', JSON.stringify(userData));
+    setShowLogin(false);
+    setIsSignupMode(false);
     navigate('/home');
   };
 
-  const handleLogout = () => {
-    const confirmLogout = window.confirm('Are you sure you want to logout?');
-    if (confirmLogout) {
-      localStorage.setItem('isAuthenticated', 'false');
-      setIsAuthenticated(false);
-      setShowLogin(false);
-      navigate('/');
-    }
-  };
+  if (isLoading || adminLoading) {
+    return <LoadingFallback />;
+  }
 
   return (
     <>
       {!isAuthenticated && showLogin && (
-        <LoginModal onLoginSuccess={handleLoginSuccess} onClose={() => setShowLogin(false)} />
+        <LoginModal 
+          onLoginSuccess={handleLoginSuccess} 
+          onClose={() => {
+            setShowLogin(false);
+            setIsSignupMode(false);
+          }} 
+          isSignupMode={isSignupMode}
+        />
       )}
-      <Routes>
-        <Route path="/" element={<HomePageLoggedOut onLoginClick={() => setShowLogin(true)} />} />
-        <Route path="/home" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <HomePageLoggedIn onLogout={handleLogout} />
-          </ProtectedRoute>
-        } />
-        <Route path="/events" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <EventsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/booking" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <BookingPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/donate" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <DonatePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/volunteer" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <VolunteerPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <ProfilePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/view-bookings" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <ViewBookingsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/donation-confirmation" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <DonationConfirmationPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/volunteer-confirmation" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <VolunteerConfirmationPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/explore-parish" element={
-          <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
-            <VirtualTour />
-          </ProtectedRoute>
-        } />
-      </Routes>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={
+            <HomePageLoggedOut 
+              onLoginClick={(signup = false) => {
+                setIsSignupMode(signup);
+                setShowLogin(true);
+              }} 
+            />
+          } />
+          <Route path="/home" element={
+            <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
+              <HomePageLoggedIn onLogout={handleLogout} />
+            </ProtectedRoute>
+          } />
+          <Route path="/events" element={
+            <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
+              <EventsPage onLogout={handleLogout} />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
+              <ProfilePage onLogout={handleLogout} />
+            </ProtectedRoute>
+          } />
+          {/* Admin routes */}
+          <Route path="/admin/login" element={
+            isAdmin ? <Navigate to="/admin" /> : <AdminLogin />
+          } />
+          <Route path="/admin/approved-calendar" element={
+            isAdmin ? (
+              <ApprovedBookingsCalendar />
+            ) : (
+              <Navigate to="/admin/login" />
+            )
+          } />
+          <Route path="/admin/*" element={
+            isAdmin ? (
+              <AdminDashboard />
+            ) : (
+              <Navigate to="/admin/login" />
+            )
+          } />
+        </Routes>
+      </Suspense>
     </>
   );
 };
 
 const App = () => {
-  return <AppContent />;
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <AppContent />
+      </Router>
+    </ThemeProvider>
+  );
 };
 
 export default App;

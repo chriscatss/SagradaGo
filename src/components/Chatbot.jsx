@@ -1,233 +1,273 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Box, Button, TextField, Typography, CircularProgress } from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
+import ChatIcon from '@mui/icons-material/Chat';
+import CloseIcon from '@mui/icons-material/Close';
 
+/**
+ * Chatbot Component
+ * A floating chat interface that allows users to interact with the Gemini AI
+ */
 const Chatbot = () => {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState(() => {
-    // Initialize with welcome message only if there's no stored history
-    const storedMessages = localStorage.getItem('chatHistory');
-    return storedMessages ? JSON.parse(storedMessages) : [{ 
-      from: 'bot', 
-      text: 'Hello! I am the Sagrada Familia Parish assistant. How may I help you today?' 
-    }];
-  });
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const messagesEndRef = useRef(null);
-  const [genAI, setGenAI] = useState(null);
+  // ===== State Management =====
+  const [open, setOpen] = useState(false); // Controls chat window visibility
+  const [messages, setMessages] = useState([
+    { 
+      role: 'model',
+      parts: [{ text: 'Hello! I am your SagradaGo assistant. How can I help you today?' }]
+    }
+  ]);
+  const [input, setInput] = useState(''); // Current input field value
+  const [loading, setLoading] = useState(false); // Loading state for API calls
+  const [error, setError] = useState(null); // Error state for displaying error messages
+  const messagesEndRef = useRef(null); // Reference for auto-scrolling to latest message
 
-  // Save messages to localStorage whenever they change
+  // ===== Effects =====
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    localStorage.setItem('chatHistory', JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    const initializeAI = async () => {
-      try {
-        const apiKey = process.env.REACT_APP_GOOGLE_API_KEY;
-        if (!apiKey) {
-          throw new Error('API key not found in environment variables');
-        }
-
-        // Initialize with just the API key
-        const ai = new GoogleGenerativeAI(apiKey);
-        setGenAI(ai);
-      } catch (err) {
-        console.error('Initialization error:', err);
-        setError(`Error initializing chatbot: ${err.message}`);
-      }
-    };
-
-    initializeAI();
-  }, []);
-
-  // Scroll to bottom when messages change or chat is opened
-  useEffect(() => {
-    if (messagesEndRef.current && open) {
+    if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, loading, open]);
+  }, [messages, loading]);
 
-  const clearHistory = () => {
-    if (window.confirm('Are you sure you want to clear the chat history?')) {
-      setMessages([{ 
-        from: 'bot', 
-        text: 'Hello! I am the Sagrada Familia Parish assistant. How may I help you today?' 
-      }]);
-      localStorage.removeItem('chatHistory');
-    }
-  };
+  // ===== Message Handling =====
+  /**
+   * Sends a message to the Gemini API and handles the response
+   * @param {string} message - The message to send
+   */
+  const sendMessage = async (message) => {
+    if (!message.trim()) return;
 
-  const sendMessage = async (msg) => {
-    if (!msg.trim() || loading) return;
-    
-    if (!genAI) {
-      setMessages(prev => [...prev, 
-        { from: 'user', text: msg },
-        { from: 'bot', text: 'Sorry, the chatbot is not properly initialized. Please try refreshing the page.' }
-      ]);
-      return;
-    }
-
-    setMessages(prev => [...prev, { from: 'user', text: msg }]);
-    setInput('');
-    setLoading(true);
-    
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const result = await model.generateContent({
-        contents: [{
-          parts: [{
-            text: `You are a helpful assistant for the Sagrada Familia Parish. ${msg}`
-          }]
-        }]
-      });
-      const response = await result.response;
-      let responseText = '';
+      setLoading(true);
+      setError(null);
+      console.log('[Chatbot Debug] Sending message', message);
+
+      // Add user message to chat
+      const userMessage = {
+        role: 'user',
+        parts: [{ text: message }]
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setInput(''); // Clear input after sending
+
+      // Build conversation history
+      const history = messages.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.parts[0].text }]
+      }));
+
+      // Check server health first
       try {
-        responseText = response.text();
-      } catch (textError) {
-        console.error('Error getting text from response:', textError);
-        responseText = 'Sorry, I encountered an error processing the response. Please try again.';
+        const healthCheck = await fetch('http://localhost:5001/api/health');
+        if (!healthCheck.ok) {
+          throw new Error('Server is not healthy. Please try again later.');
+        }
+      } catch (error) {
+        console.error('[Chatbot Debug] Health check failed:', error);
+        throw new Error('Cannot connect to the server. Please make sure the server is running.');
       }
-      setMessages(prev => [...prev, { from: 'bot', text: responseText }]);
-    } catch (error) {
-      console.error('Message error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+
+      // Make API request
+      const response = await fetch('http://localhost:5001/api/gemini', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message, history }),
       });
-      setMessages(prev => [...prev, { 
-        from: 'bot', 
-        text: `Error: ${error.message}. Please try again.` 
-      }]);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[Chatbot Debug] Server error:', errorData);
+        throw new Error(errorData.error || 'Failed to process message');
+      }
+
+      const data = await response.json();
+
+      // Add AI response to chat
+      const aiMessage = {
+        role: 'model',
+        parts: [{ text: data.reply }]
+      };
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('[Chatbot Debug] Error occurred', error);
+      let errorMessage = error.message;
+      
+      if (error.message === 'Failed to fetch') {
+        errorMessage = 'Cannot connect to the server. Please make sure the server is running at http://localhost:5001';
+      }
+      
+      setError(errorMessage);
+      
+      // Add error message to chat
+      const errorResponse = {
+        role: 'model',
+        parts: [{ text: `Error: ${errorMessage}` }]
+      };
+      setMessages(prev => [...prev, errorResponse]);
     } finally {
       setLoading(false);
     }
   };
 
-  const renderMessage = (msg) => {
-    if (typeof msg.text !== 'string') {
-      console.error('Invalid message text:', msg.text);
-      return 'Error displaying message';
-    }
-    return msg.text;
-  };
+  // ===== Render Methods =====
+  /**
+   * Renders a single message in the chat
+   * @param {Object} msg - The message to render
+   * @param {number} i - The message index
+   */
+  const renderMessage = (msg, i) => (
+    <Box
+      key={i}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+        gap: 0.5
+      }}
+    >
+      <Box sx={{
+        background: msg.role === 'user' ? '#E1D5B8' : '#e3e3e3',
+        color: '#222',
+        borderRadius: 2,
+        p: 1.5,
+        maxWidth: '80%',
+        wordBreak: 'break-word'
+      }}>
+        <Typography variant="body1">{msg.parts[0].text}</Typography>
+      </Box>
+    </Box>
+  );
 
+  // ===== Main Render =====
   return (
-    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1000 }}>
+    <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1000 }}>
       {open ? (
-        <div style={{ width: 340, height: 480, background: 'white', borderRadius: 14, boxShadow: '0 2px 16px #0002', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ background: '#E1D5B8', color: 'white', padding: 14, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              Sagrada Familia Assistant
-              <button 
-                onClick={clearHistory} 
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: 'white', 
-                  fontSize: 14, 
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: 4,
-                  opacity: 0.8
-                }}
-                title="Clear chat history"
-              >
-                🗑️
-              </button>
-            </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: 22, cursor: 'pointer' }}>&times;</button>
-          </div>
-          <div style={{ flex: 1, padding: 14, overflowY: 'auto', background: '#f7f7f7' }}>
-            {error && (
-              <div style={{ 
-                background: '#ffebee', 
-                color: '#c62828', 
-                padding: '10px', 
-                borderRadius: '8px', 
-                marginBottom: '10px',
-                fontSize: '14px'
-              }}>
-                {error}
-              </div>
-            )}
-            {messages.map((msg, i) => (
-              <div key={i} style={{ textAlign: msg.from === 'user' ? 'right' : 'left', margin: '10px 0' }}>
-                <span style={{
-                  display: 'inline-block',
-                  background: msg.from === 'user' ? '#E1D5B8' : '#e3e3e3',
-                  color: '#222',
-                  borderRadius: 18,
-                  padding: '10px 16px',
-                  maxWidth: 240,
-                  wordBreak: 'break-word',
-                  fontSize: 15
-                }}>{renderMessage(msg)}</span>
-              </div>
-            ))}
+        // Chat Window
+        <Box sx={{
+          width: 340,
+          height: 480,
+          background: 'white',
+          borderRadius: 2,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Header */}
+          <Box sx={{
+            background: '#E1D5B8',
+            color: 'white',
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              SagradaGo Assistant
+            </Typography>
+            <Button onClick={() => setOpen(false)} sx={{ color: 'white', minWidth: 'auto' }}>
+              <CloseIcon />
+            </Button>
+          </Box>
+
+          {/* Messages */}
+          <Box sx={{
+            flex: 1,
+            p: 2,
+            overflowY: 'auto',
+            background: '#f7f7f7',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1
+          }}>
+            {messages.map(renderMessage)}
             {loading && (
-              <div style={{ textAlign: 'left', margin: '10px 0' }}>
-                <span style={{
-                  display: 'inline-block',
-                  background: '#e3e3e3',
-                  color: '#888',
-                  borderRadius: 18,
-                  padding: '10px 16px',
-                  fontSize: 15
-                }}>Assistant is typing...</span>
-              </div>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">
+                  Assistant is typing...
+                </Typography>
+              </Box>
+            )}
+            {error && (
+              <Typography variant="body2" color="error" sx={{ p: 1 }}>
+                {error}
+              </Typography>
             )}
             <div ref={messagesEndRef} />
-          </div>
-          <form onSubmit={e => { e.preventDefault(); sendMessage(input); }} style={{ display: 'flex', borderTop: '1px solid #eee', background: '#fff', padding: 8 }}>
-            <input
+          </Box>
+
+          {/* Input */}
+          <Box
+            component="form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage(input);
+            }}
+            sx={{
+              display: 'flex',
+              gap: 1,
+              p: 1,
+              borderTop: '1px solid #eee',
+              background: '#fff'
+            }}
+          >
+            <TextField
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={(e) => setInput(e.target.value)}
               placeholder="Type your message..."
-              style={{ flex: 1, border: 'none', padding: 12, outline: 'none', fontSize: 16, background: 'transparent' }}
-              autoFocus={open}
-              disabled={loading || !genAI}
+              variant="outlined"
+              size="small"
+              fullWidth
+              disabled={loading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: '#f7f7f7'
+                }
+              }}
             />
-            <button 
-              type="submit" 
-              disabled={loading || !input.trim() || !genAI} 
-              style={{ 
-                background: '#E1D5B8', 
-                color: 'white', 
-                border: 'none', 
-                padding: '0 18px', 
-                fontSize: 16, 
-                cursor: (loading || !input.trim() || !genAI) ? 'not-allowed' : 'pointer', 
-                borderRadius: 0,
-                opacity: (!genAI) ? 0.5 : 1
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading || !input.trim()}
+              sx={{
+                minWidth: 'auto',
+                px: 2,
+                backgroundColor: '#E1D5B8',
+                '&:hover': {
+                  backgroundColor: '#d1c5a8'
+                }
               }}
             >
-              Send
-            </button>
-          </form>
-        </div>
+              <SendIcon />
+            </Button>
+          </Box>
+        </Box>
       ) : (
-        <button 
-          onClick={() => setOpen(true)} 
-          style={{ 
-            padding: '15px 22px', 
-            backgroundColor: '#E1D5B8', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: 24, 
-            fontWeight: 600, 
-            fontSize: 16, 
-            boxShadow: '0 2px 8px #0002', 
-            cursor: 'pointer' 
+        // Chat Button
+        <Button
+          onClick={() => setOpen(true)}
+          variant="contained"
+          startIcon={<ChatIcon />}
+          sx={{
+            backgroundColor: '#E1D5B8',
+            color: 'white',
+            borderRadius: 4,
+            px: 3,
+            py: 1.5,
+            '&:hover': {
+              backgroundColor: '#d1c5a8'
+            }
           }}
         >
-          Chat with us!
-        </button>
+          Chat with us
+        </Button>
       )}
-    </div>
+    </Box>
   );
 };
 

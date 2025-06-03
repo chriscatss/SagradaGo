@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Box, TextField, Typography, Alert } from '@mui/material';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CardPopup from '../components/CardPopup.jsx';
+import { Button, Box, Typography, Container, Grid, Card, CardContent, CardMedia, useTheme, useMediaQuery } from '@mui/material';
+import { ThemeProvider, createTheme, styled } from '@mui/material/styles';
+import LoginModal from '../config/UserAuth.jsx';
 import { useAuth } from '../context/AuthContext';
 import Chatbot from '../components/Chatbot.jsx';
 
@@ -15,32 +15,54 @@ const theme = createTheme({
   },
 });
 
+const HeroSection = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  height: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: 'white',
+  textAlign: 'center',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
+  },
+}));
+
+const HeroContent = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  zIndex: 2,
+  padding: theme.spacing(3),
+}));
+
+const FeatureCard = styled(Card)(({ theme }) => ({
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  transition: 'transform 0.3s ease-in-out',
+  '&:hover': {
+    transform: 'translateY(-10px)',
+  },
+}));
+
 const HomePageLoggedOut = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Navigation state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Authentication states
+  // Modal states
   const [loginOpen, setLoginOpen] = useState(false);
-  const [signupOpen, setSignupOpen] = useState(false);
-  const [loginMessage, setLoginMessage] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  // Signup states
-  const [signupData, setSignupData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [otpPopupOpen, setOtpPopupOpen] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [enteredOtp, setEnteredOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
+  const [isSignupMode, setIsSignupMode] = useState(false);
 
   // Navigation links configuration
   const navLinks = [
@@ -66,64 +88,42 @@ const HomePageLoggedOut = () => {
     }
   };
 
-  // Authentication handlers
-  function handleRequireLogin() {
-    setLoginMessage('You need to login first');
+  const handleRequireLogin = (signup = false) => {
+    setIsSignupMode(signup);
     setLoginOpen(true);
-  }
-
-  const handleLogin = () => {
-    // Check demo credentials
-    if (email === 'user@example.com' && password === 'password123') {
-      login();
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/home');
-      return;
-    }
-
-    // Check stored user credentials
-    const storedUser = JSON.parse(localStorage.getItem('signupUser'));
-    if (storedUser && storedUser.email === email && storedUser.password === password) {
-      login();
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/home');
-    } else {
-      alert('Invalid credentials');
-    }
   };
 
-  // Signup handlers
-  const handleSignupChange = (e) => {
-    const { name, value } = e.target;
-    setSignupData(prev => ({ ...prev, [name]: value }));
+  const handleLoginSuccess = (userData) => {
+    login();
+    navigate('/home');
   };
 
-  const handleSignup = () => {
-    if (signupData.password !== signupData.confirmPassword) {
-      alert('Passwords do not match');
-      return;
-    }
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(otp);
-    setOtpPopupOpen(true);
-    alert(`OTP sent to ${signupData.email}: ${otp}`);
-  };
+  const features = [
+    {
+      title: 'Book Sacrament',
+      description: 'Book your sacrament here.',
+      action: () => handleRequireLogin(false)
+    },
+    {
+      title: 'Online Donations',
+      description: 'Support our parish through secure online donations.',
+      action: () => handleRequireLogin(false)
+    },
+    {
+      title: 'Volunteer Programs',
+      description: 'Join our community of volunteers and make a difference.',
+      action: () => handleRequireLogin(false)
+    },
+    {
+      title: 'Virtual Tour',
+      description: 'Explore our beautiful church through a virtual tour.',
+      action: () => handleRequireLogin(false)
+    },
+  ];
 
-  const handleOtpConfirm = () => {
-    if (enteredOtp === generatedOtp) {
-      localStorage.setItem('signupUser', JSON.stringify(signupData));
-      alert('Account created successfully');
-      setSignupOpen(false);
-      setOtpPopupOpen(false);
-      setEnteredOtp('');
-      setGeneratedOtp('');
-      setOtpError('');
-      login();
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/home');
-    } else {
-      setOtpError('Invalid OTP. Please check your email and try again.');
-    }
+  const onLoginClick = (isSignup) => {
+    setIsSignupMode(isSignup);
+    setLoginOpen(true);
   };
 
   return (
@@ -134,6 +134,12 @@ const HomePageLoggedOut = () => {
           <div className="flex justify-between items-center max-w-7xl mx-auto">
             {/* Logo */}
             <div className="flex items-center cursor-pointer" onClick={() => handleNavigation('/')}>
+              <img 
+                src="/images/sagrada.png" 
+                alt="Sagrada Familia Parish Logo" 
+                className="h-12 w-12 mr-2" 
+                style={{ background: 'transparent' }}
+              />
               <span className="text-2xl font-bold text-[#E1D5B8]">SagradaGo</span>
             </div>
 
@@ -153,13 +159,13 @@ const HomePageLoggedOut = () => {
             {/* Authentication Buttons */}
             <div className="flex items-center space-x-4">
               <button 
-                onClick={() => setLoginOpen(true)}
+                onClick={() => handleRequireLogin(false)}
                 className="px-4 py-2 bg-[#E1D5B8] text-white rounded hover:bg-opacity-90 text-sm sm:text-base"
               >
                 LOGIN
               </button>
               <button 
-                onClick={() => setSignupOpen(true)}
+                onClick={() => handleRequireLogin(true)}
                 className="px-4 py-2 bg-[#E1D5B8] text-white rounded hover:bg-opacity-90 text-sm sm:text-base"
               >
                 JOIN NOW
@@ -205,14 +211,14 @@ const HomePageLoggedOut = () => {
                 <div className="max-w-2xl text-white">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
                     Simplifying Church <br />
-                    Management & Engagement.
+                    Management & Engagement
                   </h1>
                   <p className="text-lg md:text-xl mb-8">
                     The Society has built a new, mature, strategic structure, and kept up-to-date
-                    with success across all the past year.
+                    with success across all the past year
                   </p>
                   <button 
-                    onClick={() => handleRequireLogin()}
+                    onClick={() => handleRequireLogin(false)}
                     className="px-8 py-3 bg-[#E1D5B8] text-black rounded-lg hover:bg-opacity-90 text-lg transition-all hover:scale-105"
                   >
                     Book now
@@ -221,6 +227,92 @@ const HomePageLoggedOut = () => {
               </div>
             </div>
           </section>
+
+          <section className="py-8">
+            <Container maxWidth="lg">
+              <Typography
+                variant="h3"
+                component="h2"
+                align="center"
+                gutterBottom
+                sx={{
+                  color: '#333',
+                  mb: 6,
+                  fontWeight: 'bold',
+                }}
+              >
+                Our Services
+              </Typography>
+              <Grid container spacing={4}>
+                {features.map((feature, index) => (
+                  <Grid item xs={12} sm={6} md={3} key={index}>
+                    <FeatureCard onClick={feature.action}>
+                      <CardContent sx={{ flexGrow: 1, bgcolor: 'white' }}>
+                        <Typography
+                          gutterBottom
+                          variant="h5"
+                          component="h3"
+                          sx={{ color: '#E1D5B8', fontWeight: 'bold' }}
+                        >
+                          {feature.title}
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                          {feature.description}
+                        </Typography>
+                      </CardContent>
+                    </FeatureCard>
+                  </Grid>
+                ))}
+              </Grid>
+            </Container>
+          </section>
+
+          <section className="py-8 bg-gray-100">
+            <Container maxWidth="md">
+              <Typography
+                variant="h3"
+                component="h2"
+                align="center"
+                gutterBottom
+                sx={{
+                  color: '#333',
+                  mb: 4,
+                  fontWeight: 'bold',
+                }}
+              >
+                Join Our Community
+              </Typography>
+              <Typography
+                variant="h6"
+                align="center"
+                color="text.secondary"
+                paragraph
+                sx={{ mb: 4 }}
+              >
+                Be part of our growing parish family Connect with fellow parishioners,
+                participate in church activities, and strengthen your faith journey with us.
+              </Typography>
+              <Box sx={{ textAlign: 'center' }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => handleRequireLogin(true)}
+                  sx={{
+                    bgcolor: '#E1D5B8',
+                    color: 'white',
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1.1rem',
+                    '&:hover': {
+                      bgcolor: '#d4c4a1',
+                    },
+                  }}
+                >
+                  Sign Up Now
+                </Button>
+              </Box>
+            </Container>
+          </section>
         </main>
 
         {/* Footer */}
@@ -228,7 +320,7 @@ const HomePageLoggedOut = () => {
           <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
             <div>
               <div className="flex items-center mb-4">
-                <img src="/images/logo.png" alt="SagradaGo Logo" className="h-10 w-auto mr-2" />
+                <img src="/images/sagrada.png" alt="SagradaGo Logo" className="h-10 w-auto mr-2" />
                 <span className="text-2xl font-bold text-[#E1D5B8]">SagradaGo</span>
               </div>
               <p className="text-sm">
@@ -255,137 +347,14 @@ const HomePageLoggedOut = () => {
           </div>
         </footer>
 
-        {/* Login Dialog */}
-        <CardPopup open={loginOpen} onClose={() => { setLoginOpen(false); setLoginMessage(''); }} title="Login">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            {loginMessage && (
-              <Alert severity="warning" sx={{ mb: 1 }}>{loginMessage}</Alert>
-            )}
-            <TextField
-              label="Email"
-              fullWidth
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoFocus
-            />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Button 
-              variant="contained" 
-              fullWidth 
-              onClick={handleLogin}
-              sx={{ mt: 2, bgcolor: '#E1D5B8', '&:hover': { bgcolor: '#d1c5a8' } }}
-            >
-              Login
-            </Button>
-            <Button 
-              fullWidth 
-              onClick={() => {
-                setLoginOpen(false);
-                setSignupOpen(true);
-                setLoginMessage('');
-              }}
-              sx={{ mt: 1 }}
-            >
-              Don't have an account? Sign up
-            </Button>
-          </Box>
-        </CardPopup>
-
-        {/* Signup Dialog */}
-        <CardPopup open={signupOpen} onClose={() => setSignupOpen(false)} title="Sign Up">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            <Typography variant="body1" sx={{ mb: 1 }}>
-              Fill out the form to create your account. You will receive an OTP via email for confirmation.
-            </Typography>
-            <TextField
-              label="First Name"
-              fullWidth
-              name="firstName"
-              value={signupData.firstName}
-              onChange={handleSignupChange}
-              autoFocus
-            />
-            <TextField
-              label="Last Name"
-              fullWidth
-              name="lastName"
-              value={signupData.lastName}
-              onChange={handleSignupChange}
-            />
-            <TextField
-              label="Email"
-              fullWidth
-              name="email"
-              value={signupData.email}
-              onChange={handleSignupChange}
-            />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              name="password"
-              value={signupData.password}
-              onChange={handleSignupChange}
-            />
-            <TextField
-              label="Confirm Password"
-              type="password"
-              fullWidth
-              name="confirmPassword"
-              value={signupData.confirmPassword}
-              onChange={handleSignupChange}
-            />
-            <Button 
-              variant="contained" 
-              fullWidth 
-              onClick={handleSignup}
-              sx={{ mt: 2, bgcolor: '#E1D5B8', '&:hover': { bgcolor: '#d1c5a8' } }}
-            >
-              Sign Up
-            </Button>
-            <Button 
-              fullWidth 
-              onClick={() => {
-                setSignupOpen(false);
-                setLoginOpen(true);
-              }}
-              sx={{ mt: 1 }}
-            >
-              Already have an account? Log in
-            </Button>
-          </Box>
-        </CardPopup>
-
-        {/* OTP Confirmation Dialog */}
-        <CardPopup open={otpPopupOpen} onClose={() => setOtpPopupOpen(false)} title="Confirm OTP">
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            <Typography variant="body1" sx={{ mb: 1 }}>
-              Please enter the 6-digit OTP sent to your email to complete your registration.
-            </Typography>
-            <TextField
-              label="Enter OTP"
-              fullWidth
-              value={enteredOtp}
-              onChange={e => setEnteredOtp(e.target.value)}
-              autoFocus
-            />
-            {otpError && <Alert severity="error">{otpError}</Alert>}
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={handleOtpConfirm}
-              sx={{ mt: 2, bgcolor: '#E1D5B8', '&:hover': { bgcolor: '#d1c5a8' } }}
-            >
-              Confirm OTP
-            </Button>
-          </Box>
-        </CardPopup>
+        {/* Login/Signup Modal */}
+        {loginOpen && (
+          <LoginModal
+            onClose={() => setLoginOpen(false)}
+            onLoginSuccess={handleLoginSuccess}
+            isSignupMode={isSignupMode}
+          />
+        )}
 
         {/* Chatbot Component */}
         <Chatbot />
