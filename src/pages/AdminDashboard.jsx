@@ -35,7 +35,6 @@ import {
   Checkbox,
   FormControlLabel,
   Chip,
-  Popover,
   Autocomplete,
   FormControl,
   Select,
@@ -44,7 +43,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import HistoryIcon from '@mui/icons-material/History';
-import RestoreIcon from '@mui/icons-material/Restore';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -52,14 +50,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
-import { v4 as uuidv4 } from 'uuid';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-
-// Default admin credentials (these would normally be in .env)
-const DEFAULT_ADMIN = {
-  email: 'admin@sagradago.com',
-  password: 'admin123456'
-};
 
 // Define table structures
 const TABLE_STRUCTURES = {
@@ -178,19 +168,14 @@ const AdminDashboard = () => {
   const [openDeletedDialog, setOpenDeletedDialog] = useState(false);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeDialog, setActiveDialog] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [columnFilters, setColumnFilters] = useState({});
+  const [tableStats, setTableStats] = useState({});
+  const [users, setUsers] = useState([]);
+  const [activeFilters, setActiveFilters] = useState({});
   const [visibleColumns, setVisibleColumns] = useState({});
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [columnAnchorEl, setColumnAnchorEl] = useState(null);
-  const [recentSearches, setRecentSearches] = useState([]);
-  const [tableStats, setTableStats] = useState({});
-  const [users, setUsers] = useState([]);
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [activeFilters, setActiveFilters] = useState({});
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading, logout, adminData } = useAdminAuth();
 
@@ -803,28 +788,6 @@ const AdminDashboard = () => {
     return String(value);
   };
 
-  const handleOpenDialog = (dialogType) => {
-    setActiveDialog(dialogType);
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setFormData({});
-    setEditingRecord(null);
-  };
-
-  const handleSearch = (event) => {
-    const query = event.target.value;
-    setSearchQuery(query);
-    
-    if (query && !recentSearches.includes(query)) {
-      setRecentSearches(prev => [query, ...prev].slice(0, 5));
-    }
-    
-    applyFilters();
-  };
-
   const handleSort = (key) => {
     let direction = 'desc';
     if (sortConfig.key === key && sortConfig.direction === 'desc') {
@@ -1028,6 +991,12 @@ const AdminDashboard = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setFormData({});
+    setEditingRecord(null);
   };
 
   if (authLoading) {
@@ -1258,7 +1227,7 @@ const AdminDashboard = () => {
               {/* Search with Autocomplete */}
               <Autocomplete
                 freeSolo
-                options={recentSearches}
+                options={[]}
                 value={searchQuery}
                 onChange={(event, newValue) => {
                   setSearchQuery(newValue);

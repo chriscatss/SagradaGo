@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -7,17 +7,18 @@ import LoginModal from './config/UserAuth';
 import { useAdminAuth } from './context/AdminAuthContext';
 import { supabase } from './config/supabase';
 import ProtectedRoute from './config/ProtectedRoute';
+import HomePageLoggedIn from './pages/HomePageLoggedIn';
 
-// Lazy load components
+
 const HomePageLoggedOut = lazy(() => import('./pages/HomePageLoggedOut'));
-const HomePageLoggedIn = lazy(() => import('./pages/HomePageLoggedIn'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ApprovedBookingsCalendar = lazy(() => import('./pages/ApprovedBookingsCalendar'));
+const ExploreParish = lazy(() => import('./pages/ExploreParish'));
 
-// Create a theme instance
+
 const theme = createTheme({
   palette: {
     primary: {
@@ -52,12 +53,11 @@ const AppContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { isAdmin, loading: adminLoading } = useAdminAuth();
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userData');
     navigate('/');
-  };
+  }, [navigate]);
 
   useEffect(() => {
     let mounted = true;
@@ -202,6 +202,7 @@ const AppContent = () => {
               <Navigate to="/admin/login" />
             )
           } />
+          <Route path="/explore-parish" element={<ExploreParish />} />
         </Routes>
       </Suspense>
     </>

@@ -14,7 +14,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     { 
       role: 'model',
-      parts: [{ text: 'Hello! I am your SagradaGo assistant. How can I help you today?' }]
+      parts: [{ text: 'Welcome to SagradaGo Parish Information System! I can help you with:\n\n• Mass schedules and events\n• Parish activities and programs\n• Sacramental services\n• Donations and offerings\n• General parish information\n\nHow may I assist you today?' }]
     }
   ]);
   const [input, setInput] = useState(''); // Current input field value
@@ -166,7 +166,7 @@ const Chatbot = () => {
             alignItems: 'center'
           }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              SagradaGo Assistant
+              Parish Assistant
             </Typography>
             <Button onClick={() => setOpen(false)} sx={{ color: 'white', minWidth: 'auto' }}>
               <CloseIcon />
@@ -264,7 +264,7 @@ const Chatbot = () => {
             }
           }}
         >
-          Chat with us
+          Ask Parish Assistant
         </Button>
       )}
     </Box>

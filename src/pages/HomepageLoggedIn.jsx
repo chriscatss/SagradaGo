@@ -7,6 +7,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import CardPopup from './CardPopUp.jsx';
 import Chatbot from '../components/Chatbot.jsx';
 import { styled } from '@mui/material/styles';
+import { supabase } from '../config/supabase';
 
 // Styled components
 const FeatureCard = styled(Card)(({ theme }) => ({
@@ -29,6 +30,7 @@ const HomePageLoggedIn = ({ onLogout }) => {
   const [selectedSacrament, setSelectedSacrament] = useState('');
   const [date, setDate] = useState(null);
   const [time, setTime] = useState(null);
+  const [pax, setPax] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [volunteerOpen, setVolunteerOpen] = useState(false);
   const [isVolunteer, setIsVolunteer] = useState(false);
@@ -58,17 +60,52 @@ const HomePageLoggedIn = ({ onLogout }) => {
     setMobileMenuOpen(false);
   };
 
-  const handleBooking = () => {
-    if (!selectedSacrament || !date || !time) {
-      setErrorMessage('Please select a sacrament, date, and time.');
+  const handleBooking = async () => {
+    if (!selectedSacrament || !date || !time || !pax) {
+      setErrorMessage('Please select a sacrament, date, time, and number of people.');
       return;
     }
-    alert(`Booking confirmed for ${selectedSacrament} on ${date} at ${time}`);
-    setSelectedSacrament('');
-    setDate(null);
-    setTime(null);
-    setErrorMessage('');
-    setBookingOpen(false);
+
+    try {
+      // Get the current user's ID
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        setErrorMessage('You must be logged in to make a booking.');
+        return;
+      }
+
+      // Generate a transaction ID
+      const transactionId = `TRX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      // Insert the booking into the database
+      const { error } = await supabase
+        .from('booking_tbl')
+        .insert([
+          {
+            user_id: user.id,
+            booking_sacrament: selectedSacrament,
+            booking_date: date.toISOString().split('T')[0],
+            booking_time: time.toLocaleTimeString('en-US', { hour12: false }),
+            booking_pax: parseInt(pax),
+            booking_status: 'pending',
+            booking_transaction: transactionId
+          }
+        ]);
+
+      if (error) throw error;
+
+      alert(`Booking confirmed for ${selectedSacrament} on ${date.toLocaleDateString()} at ${time.toLocaleTimeString()} for ${pax} people`);
+      setSelectedSacrament('');
+      setDate(null);
+      setTime(null);
+      setPax('');
+      setErrorMessage('');
+      setBookingOpen(false);
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      setErrorMessage('Failed to create booking. Please try again.');
+    }
   };
 
   const handleDonate = () => {
@@ -290,38 +327,110 @@ const HomePageLoggedIn = ({ onLogout }) => {
       </main>
 
       {/* Footer Section */}
-      <footer className="bg-white text-black py-12 px-6 border-t border-gray-200">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div>
-            <div className="flex items-center mb-4">
+      <footer className="bg-gradient-to-b from-white to-gray-50 text-black py-16 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Top Section with Logo and Description */}
+          <div className="flex flex-col md:flex-row items-center justify-between mb-12 pb-8 border-b border-gray-200">
+            <div className="flex items-center mb-6 md:mb-0">
               <img 
                 src="/images/sagrada.png" 
                 alt="SagradaGo Logo" 
-                className="h-10 w-auto mr-2" 
+                className="h-16 w-auto mr-4" 
               />
-              <span className="text-2xl font-bold text-[#E1D5B8]">SagradaGo</span>
+              <div>
+                <span className="text-3xl font-bold text-[#E1D5B8]">SagradaGo</span>
+                <p className="text-sm text-gray-600 mt-2 max-w-md">
+                  A digital gateway to Sagrada Familia Parish, connecting faith and community through modern technology.
+                </p>
+              </div>
             </div>
-            <p className="text-sm">
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry.
-              Lorem Ipsum has been the industry's standard dummy text ever since the 1500s.
-            </p>
+            <div className="flex space-x-4">
+              <a 
+                href="https://www.facebook.com/sfpsanctuaryoftheholyfaceofmanoppello"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#E1D5B8] p-3 rounded-full hover:bg-[#d1c5a8] transition-colors duration-200"
+              >
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
+                </svg>
+              </a>
+            </div>
           </div>
-          <div>
-            <h4 className="text-lg font-semibold mb-4">CHURCH</h4>
-            <ul className="space-y-2 text-sm">
-              {/* Church links can be added here */}
-            </ul>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8] relative inline-block">
+                Quick Links
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E1D5B8] transform scale-x-0 transition-transform duration-300 group-hover:scale-x-100"></span>
+              </h4>
+              <ul className="space-y-4">
+                <li>
+                  <button 
+                    onClick={() => handleNavigation('/home')}
+                    className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2">→</span>
+                    Home
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => handleNavigation('/events')}
+                    className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2">→</span>
+                    Events
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => handleNavigation('/explore-parish')}
+                    className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                  >
+                    <span className="mr-2">→</span>
+                    Virtual Tour
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* About Section */}
+            <div>
+              <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8]">About Us</h4>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Sagrada Go is a mobile and web-based appointment and record management system designed for Sagrada Familia Parish. It streamlines parish services by allowing users to schedule appointments, access records, and stay updated with church events—anytime, anywhere.
+              </p>
+            </div>
+
+            {/* Contact Section */}
+            <div>
+              <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8]">Contact Us</h4>
+              <ul className="space-y-4">
+                <li className="flex items-start">
+                  <svg className="w-5 h-5 text-[#E1D5B8] mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span className="text-gray-600">Sagrada Familia Parish, Sanctuary of the Holy Face of Manoppello, Manila, Philippines</span>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="text-lg font-semibold mb-4">GET IN TOUCH</h4>
-            <ul className="text-sm space-y-2">
-              <li><span className="text-gray-700">+1-212-456-7890</span></li>
-              <li><span className="text-gray-700">greatstackdev@gmail.com</span></li>
-            </ul>
+
+          {/* Bottom Section */}
+          <div className="pt-8 border-t border-gray-200">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <p className="text-gray-500 text-sm mb-4 md:mb-0">
+                © 2025 Sagrada Familia Parish. All rights reserved.
+              </p>
+              <p className="text-gray-500 text-sm">
+                Designed and Developed by Group 2 – Sagrada Go Capstone Team
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
-          Copyright © {new Date().getFullYear()} GreatStack - All Rights Reserved.
         </div>
       </footer>
 
@@ -391,13 +500,22 @@ const HomePageLoggedIn = ({ onLogout }) => {
                   renderInput={(params) => <TextField {...params} fullWidth />}
                 />
               </LocalizationProvider>
+              <TextField
+                fullWidth
+                label="Number of People"
+                type="number"
+                value={pax}
+                onChange={(e) => setPax(e.target.value)}
+                inputProps={{ min: 1 }}
+                required
+              />
               <Button
                 variant="contained"
                 fullWidth
                 onClick={handleBooking}
                 sx={{ mt: 2, bgcolor: '#E1D5B8', '&:hover': { bgcolor: '#d1c5a8' } }}
               >
-                Confirm Booking
+                Request Booking
               </Button>
             </>
           )}

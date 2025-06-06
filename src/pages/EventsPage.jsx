@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Button, Typography } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import { Box, Typography, Container, Paper, Grid } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 
 const EventsPage = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -8,10 +9,7 @@ const EventsPage = ({ onLogout }) => {
   // Navigation handlers and navLinks copied from HomepageLoggedIn
   const navLinks = [
     { label: 'HOME', action: () => handleNavigation('/home'), highlight: false },
-    { label: 'DONATE', action: () => setDonateOpen(true), highlight: false },
-    { label: 'BOOK A SERVICE', action: () => setBookingOpen(true), highlight: false },
     { label: 'EVENTS', action: () => handleNavigation('/events'), highlight: false },
-    { label: 'BE A VOLUNTEER', action: () => setVolunteerOpen(true), highlight: false },
     { label: 'VIRTUAL TOUR', action: () => handleNavigation('/explore-parish'), highlight: false },
     { label: 'LOGOUT', action: onLogout, highlight: false }
   ];
@@ -26,39 +24,36 @@ const EventsPage = ({ onLogout }) => {
       handleNavigation(actionOrPath);
     }
   }
-  // Dummy handlers for popups (if needed)
-  const [DonateOpen, setDonateOpen] = React.useState(false);
-  const [bookingOpen, setBookingOpen] = React.useState(false);
-  const [volunteerOpen, setVolunteerOpen] = React.useState(false);
+  
 
   const events = [
     {
-      title: 'Ash Wednesday',
+      title: 'Diocesan Youth Day',
       date: '2025-02-23',
-      description: 'A church event for Ash Wednesday.',
-      img: '/path/to/ash-wednesday-image.jpg',
+      description: 'A church event for the Youth of the Diocese.',
+      img: '/images/dyd.jpg',
     },
     {
-      title: 'Palm Sunday',
+      title: 'Sagrada Familia Parish Feast Day',
       date: '2025-03-23',
-      description: 'A church event for Palm Sunday.',
-      img: '/path/to/palm-sunday-image.jpg',
+      description: 'A church event for Feast Day.',
+      img: '/images/pista.jpg',
     },
     {
-      title: 'Lenten Retreat',
-      date: '2025-03-29',
-      description: 'A church event for Lenten Retreat.',
-      img: '/path/to/lenten-retreat-image.jpg',
+      title: 'Sacerdotal Anniversary',
+      date: '2025-11-29',
+      description: 'A church event for Sacerdotal Anniversary of the Parish Priest.',
+      img: '/images/sarcedotal.jpg',
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white shadow-md py-4 px-6">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <header className="bg-white shadow-md py-4 px-6 sticky top-0 z-50">
         <div className="flex justify-between items-center max-w-7xl mx-auto">
           <div className="flex items-center cursor-pointer" onClick={() => handleNavigation('/home')}>
             <img 
-              src="/images/logo.png"
+              src="/images/sagrada.png"
               alt="SagradaGo Logo"
               className="h-10 w-auto mr-2"
             />
@@ -134,24 +129,105 @@ const EventsPage = ({ onLogout }) => {
           </div>
         )}
       </header>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 10 }}>
-        <Typography variant="h4" gutterBottom>
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography 
+          variant="h3" 
+          component="h1" 
+          align="center" 
+          sx={{ 
+            mb: 6, 
+            color: '#2C3E50',
+            fontWeight: 'bold',
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              display: 'block',
+              width: '60px',
+              height: '4px',
+              backgroundColor: '#E1D5B8',
+              margin: '16px auto 0',
+              borderRadius: '2px'
+            }
+          }}
+        >
           Upcoming Events
         </Typography>
-        {events.map((event, index) => (
-          <Box key={index} sx={{ mb: 3, width: '80%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <img src={event.img} alt={event.title} style={{ width: '100px', height: '100px', borderRadius: '8px' }} />
-            <Box sx={{ marginLeft: '20px' }}>
-              <Typography variant="h6">{event.title}</Typography>
-              <Typography variant="body1">{event.date}</Typography>
-              <Typography variant="body2">{event.description}</Typography>
-              <Button variant="contained" sx={{ mt: 1 }}>
-                <Link to={`/events/${event.title}`} style={{ textDecoration: 'none', color: 'white' }}>View Details</Link>
-              </Button>
-            </Box>
-          </Box>
-        ))}
-      </Box>
+        <Grid container spacing={4}>
+          {events.map((event, index) => (
+            <Grid item xs={12} md={6} lg={4} key={index}>
+              <Paper 
+                elevation={3}
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+                  }
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'relative',
+                    paddingTop: '56.25%', // 16:9 aspect ratio
+                    overflow: 'hidden',
+                    borderTopLeftRadius: '8px',
+                    borderTopRightRadius: '8px'
+                  }}
+                >
+                  <img 
+                    src={event.img} 
+                    alt={event.title} 
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                </Box>
+                <Box sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Typography 
+                    variant="h5" 
+                    component="h2" 
+                    sx={{ 
+                      mb: 1,
+                      fontWeight: 'bold',
+                      color: '#2C3E50'
+                    }}
+                  >
+                    {event.title}
+                  </Typography>
+                  <Typography 
+                    variant="subtitle1" 
+                    sx={{ 
+                      mb: 2,
+                      color: '#E1D5B8',
+                      fontWeight: 'medium'
+                    }}
+                  >
+                    {format(new Date(event.date), 'MMMM d, yyyy')}
+                  </Typography>
+                  <Typography 
+                    variant="body1" 
+                    sx={{ 
+                      mb: 3,
+                      color: '#666',
+                      flexGrow: 1
+                    }}
+                  >
+                    {event.description}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
     </div>
   );
 };
