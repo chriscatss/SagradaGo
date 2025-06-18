@@ -2,7 +2,7 @@ const exportToCSV = (data, filename) => {
     const headers = {
       transaction_logs: ['Timestamp', 'Table', 'Action', 'Record ID', 'Performed By', 'Performed By Email', 'Old Data', 'New Data'],
       deleted_records: ['Deleted At', 'Table', 'Record ID', 'Deleted By', 'Deleted By Email', 'Record Data'],
-      booking_tbl: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', 'Document Link', 'Status', 'Date Created'],
+      booking_tbl: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
       document_tbl: ['ID', 'Firstname', 'Middle Name', 'Lastname', 'Gender', 'Bday', 'Mobile Number', 'Document Status', 'Document Baptismal', 'Document Confirmation', 'Document Wedding'],
       donation_tbl: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Donation Amount', 'Donation Intercession', 'Status', 'Date Created'],
       admin_tbl: ['ID', 'Firstname', 'Lastname', 'Admin Email', 'Mobile Number', 'Birthday', 'Role', 'Status', 'Date Created'],
@@ -11,10 +11,12 @@ const exportToCSV = (data, filename) => {
       user_tbl: ['ID', 'Firstname', 'Middle Name', 'Lastname', 'Gender', 'Mobile Number', 'Birthday', 'Email', 'Status', 'Date Created'],
 
       // Booking Sacraments
-      wedding: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Groom's Name", "Bride's Name", "Groom 1x1", "Bride 1x1", 'Document Link', 'Status', 'Date Created'],
-      baptism: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', 'Document Link', 'Status', 'Date Created'],
-      confession: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', 'Document Link', 'Status', 'Date Created'],
-      anointing: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', 'Document Link', 'Status', 'Date Created']
+      wedding: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
+      baptism: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
+      confession: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
+      anointing: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
+      communion: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created'],
+      burial: ['ID', 'User ID', 'User Firstname', 'User Lastname', 'Booking Status', 'Booking Sacrament', 'Booking Date', 'Booking Time', 'Amount of People', 'Booking Transaction', "Price", "Paid", 'Status', 'Date Created']
     };
 
     if (!headers[filename]) {
@@ -52,7 +54,8 @@ const exportToCSV = (data, filename) => {
         booking.booking_time,
         booking.booking_pax,
         booking.booking_transaction,
-        booking.document || '',
+        booking.price || '',
+        booking.paid,
         booking.status || '',
         new Date(booking.date_created).toLocaleString()
       ],
@@ -67,11 +70,8 @@ const exportToCSV = (data, filename) => {
         booking.booking_time,
         booking.booking_pax,
         booking.booking_transaction,
-        booking.groom_fullname,
-        booking.bride_fullname,
-        booking.groom_1x1 || '',
-        booking.bride_1x1 || '',
-        booking.document || '',
+        booking.price || '',
+        booking.paid,
         booking.status || '',
         new Date(booking.date_created).toLocaleString(),
       ],
@@ -86,7 +86,8 @@ const exportToCSV = (data, filename) => {
         booking.booking_time,
         booking.booking_pax,
         booking.booking_transaction,
-        booking.document || '',
+        booking.price || '',
+        booking.paid,
         booking.status || '',
         new Date(booking.date_created).toLocaleString()
       ],
@@ -101,7 +102,8 @@ const exportToCSV = (data, filename) => {
         booking.booking_time,
         booking.booking_pax,
         booking.booking_transaction,
-        booking.document || '',
+        booking.price || '',
+        booking.paid,
         booking.status || '',
         new Date(booking.date_created).toLocaleString()
       ],
@@ -116,7 +118,40 @@ const exportToCSV = (data, filename) => {
         booking.booking_time,
         booking.booking_pax,
         booking.booking_transaction,
-        booking.document || '',
+        booking.price || '',
+        booking.paid,
+        booking.status || '',
+        new Date(booking.date_created).toLocaleString()
+      ],
+      communion: (booking) => [
+        booking.id,
+        booking.user_id,
+        booking.user_firstname,
+        booking.user_lastname,
+        booking.booking_status,
+        booking.booking_sacrament,
+        new Date(booking.booking_date).toLocaleDateString(),
+        booking.booking_time,
+        booking.booking_pax,
+        booking.booking_transaction,
+        booking.price || '',
+        booking.paid,
+        booking.status || '',
+        new Date(booking.date_created).toLocaleString()
+      ],
+      burial: (booking) => [
+        booking.id,
+        booking.user_id,
+        booking.user_firstname,
+        booking.user_lastname,
+        booking.booking_status,
+        booking.booking_sacrament,
+        new Date(booking.booking_date).toLocaleDateString(),
+        booking.booking_time,
+        booking.booking_pax,
+        booking.booking_transaction,
+        booking.price || '',
+        booking.paid,
         booking.status || '',
         new Date(booking.date_created).toLocaleString()
       ],
