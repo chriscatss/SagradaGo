@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import { useAdminAuth } from '../context/AdminAuthContext';
@@ -48,21 +48,20 @@ const AdminLogin = () => {
         throw authError;
       }
 
-      // Then, create the employee record
-      const { error: employeeError } = await supabase
-        .from('employee_tbl')
+      // Then, create the admin record
+      const { error: adminError } = await supabase
+        .from('admin_tbl')
         .insert([
           {
-            employee_email: DEFAULT_ADMIN.email,
-            employee_role: 'admin',
-            employee_firstname: 'Admin',
-            employee_lastname: 'User'
+            admin_email: DEFAULT_ADMIN.email,
+            admin_firstname: 'Admin',
+            admin_lastname: 'User'
           }
         ]);
 
-      if (employeeError) {
-        console.error('Error creating employee record:', employeeError);
-        throw employeeError;
+      if (adminError) {
+        console.error('Error creating admin record:', adminError);
+        throw adminError;
       }
 
       return authData;
@@ -79,35 +78,33 @@ const AdminLogin = () => {
     console.log('Login started:', new Date().toISOString());
 
     try {
-      // Check if employee exists with provided email and password
-      const { data: employee, error: employeeError } = await supabase
-        .from('employee_tbl')
+      // Check if admin exists with provided email and password
+      const { data: admin, error: adminError } = await supabase
+        .from('admin_tbl')
         .select('*')
-        .eq('employee_email', email)
-        .eq('employee_pword', password)
-        .eq('employee_role', 'admin')
+        .eq('admin_email', email)
+        .eq('admin_pword', password)
         .eq('is_deleted', false)
         .eq('status', 'active')
         .single();
 
-      console.log('Employee check completed:', new Date().toISOString());
+      console.log('admin check completed:', new Date().toISOString());
 
-      if (employeeError) {
-        console.error('Employee check error:', employeeError);
-        throw employeeError;
+      if (adminError) {
+        console.error('admin check error:', adminError);
+        throw adminError;
       }
 
-      if (!employee) {
+      if (!admin) {
         throw new Error('Invalid email or password');
       }
 
       // Store admin data in localStorage
       const adminData = {
-        id: employee.id,
-        email: employee.employee_email,
-        firstName: employee.employee_firstname,
-        lastName: employee.employee_lastname,
-        role: employee.employee_role
+        id: admin.id,
+        email: admin.admin_email,
+        firstName: admin.admin_firstname,
+        lastName: admin.admin_lastname
       };
 
       // Call login function from AdminAuthContext
@@ -122,10 +119,6 @@ const AdminLogin = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
-  };
 
   return (
     <Container component="main" maxWidth="xs">

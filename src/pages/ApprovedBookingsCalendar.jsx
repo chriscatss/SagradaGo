@@ -62,7 +62,7 @@ const ApprovedBookingsCalendar = () => {
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4, p: 2 }}>
-      <Button variant="outlined" sx={{ mb: 2 }} onClick={() => navigate('/admin')}>
+      <Button variant="outlined" sx={{ mb: 2, color: '#6B5F32' }} onClick={() => navigate('/admin')}>
         Back to Dashboard
       </Button>
       <Typography variant="h4" gutterBottom>Approved Bookings Calendar</Typography>

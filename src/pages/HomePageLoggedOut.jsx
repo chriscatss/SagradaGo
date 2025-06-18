@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Box, Typography, Container, Grid, Card, CardContent, CardMedia, useTheme, useMediaQuery } from '@mui/material';
 import { ThemeProvider, createTheme, styled } from '@mui/material/styles';
 import LoginModal from '../config/UserAuth.jsx';
 import { useAuth } from '../context/AuthContext';
 import Chatbot from '../components/Chatbot.jsx';
+import isUserLoggedIn from '../utils/isUserLoggedIn.jsx';
 
 // Create a theme instance
 const theme = createTheme({
@@ -63,6 +64,18 @@ const HomePageLoggedOut = () => {
   // Modal states
   const [loginOpen, setLoginOpen] = useState(false);
   const [isSignupMode, setIsSignupMode] = useState(false);
+
+  // Check if user is logged in
+  useEffect(() => {
+    async function checkLoginStatus() {
+      const isLoggedIn = await isUserLoggedIn();
+      if (isLoggedIn) {
+        navigate('/home');
+      }
+    }
+    checkLoginStatus();
+  }, []);
+
 
   // Navigation links configuration
   const navLinks = [
@@ -252,7 +265,7 @@ const HomePageLoggedOut = () => {
                           gutterBottom
                           variant="h5"
                           component="h3"
-                          sx={{ color: '#E1D5B8', fontWeight: 'bold' }}
+                          sx={{ color: '#6B5F32', fontWeight: 'bold' }}
                         >
                           {feature.title}
                         </Typography>
@@ -299,7 +312,7 @@ const HomePageLoggedOut = () => {
                   onClick={() => handleRequireLogin(true)}
                   sx={{
                     bgcolor: '#E1D5B8',
-                    color: 'white',
+                    color: 'black',
                     px: 4,
                     py: 1.5,
                     fontSize: '1.1rem',
@@ -327,7 +340,7 @@ const HomePageLoggedOut = () => {
                   className="h-16 w-auto mr-4" 
                 />
                 <div>
-                  <span className="text-3xl font-bold text-[#E1D5B8]">SagradaGo</span>
+                  <span className="text-3xl font-bold text-[#6B5F32]">SagradaGo</span>
                   <p className="text-sm text-gray-600 mt-2 max-w-md">
                     A digital gateway to Sagrada Familia Parish, connecting faith and community through modern technology.
                   </p>
@@ -338,7 +351,7 @@ const HomePageLoggedOut = () => {
                   href="https://www.facebook.com/sfpsanctuaryoftheholyfaceofmanoppello"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-[#E1D5B8] p-3 rounded-full hover:bg-[#d1c5a8] transition-colors duration-200"
+                  className="bg-[#6B5F32] p-3 rounded-full hover:bg-[#d1c5a8] transition-colors duration-200"
                 >
                   <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M18.77 7.46H14.5v-1.9c0-.9.6-1.1 1-1.1h3V.5h-4.33C10.24.5 9.5 3.44 9.5 5.32v2.15h-3v4h3v12h5v-12h3.85l.42-4z"/>
@@ -351,15 +364,15 @@ const HomePageLoggedOut = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
               {/* Quick Links */}
               <div>
-                <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8] relative inline-block">
+                <h4 className="text-lg font-semibold mb-6 text-[#6B5F32] relative inline-block">
                   Quick Links
-                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#E1D5B8] transform scale-x-0 transition-transform duration-300 group-hover:scale-x-100"></span>
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#6B5F32] transform scale-x-0 transition-transform duration-300 group-hover:scale-x-100"></span>
                 </h4>
                 <ul className="space-y-4">
                   <li>
                     <button 
                       onClick={() => handleNavigation('/')}
-                      className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                      className="text-gray-600 hover:text-[#6B5F32] transition-colors duration-200 flex items-center"
                     >
                       <span className="mr-2">→</span>
                       Home
@@ -368,7 +381,7 @@ const HomePageLoggedOut = () => {
                   <li>
                     <button 
                       onClick={() => handleRequireLogin(false)}
-                      className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                      className="text-gray-600 hover:text-[#6B5F32] transition-colors duration-200 flex items-center"
                     >
                       <span className="mr-2">→</span>
                       Events
@@ -377,7 +390,7 @@ const HomePageLoggedOut = () => {
                   <li>
                     <button 
                       onClick={() => handleRequireLogin(false)}
-                      className="text-gray-600 hover:text-[#E1D5B8] transition-colors duration-200 flex items-center"
+                      className="text-gray-600 hover:text-[#6B5F32] transition-colors duration-200 flex items-center"
                     >
                       <span className="mr-2">→</span>
                       Virtual Tour
@@ -388,7 +401,7 @@ const HomePageLoggedOut = () => {
 
               {/* About Section */}
               <div>
-                <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8]">About Us</h4>
+                <h4 className="text-lg font-semibold mb-6 text-[#6B5F32]">About Us</h4>
                 <p className="text-gray-600 text-sm leading-relaxed">
                   Sagrada Go is a mobile and web-based appointment and record management system designed for Sagrada Familia Parish. It streamlines parish services by allowing users to schedule appointments, access records, and stay updated with church events—anytime, anywhere.
                 </p>
@@ -396,10 +409,10 @@ const HomePageLoggedOut = () => {
 
               {/* Contact Section */}
               <div>
-                <h4 className="text-lg font-semibold mb-6 text-[#E1D5B8]">Contact Us</h4>
+                <h4 className="text-lg font-semibold mb-6 text-[#6B5F32]">Contact Us</h4>
                 <ul className="space-y-4">
                   <li className="flex items-start">
-                    <svg className="w-5 h-5 text-[#E1D5B8] mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-[#6B5F32] mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>

@@ -7,7 +7,7 @@ import LoginModal from './config/UserAuth';
 import { useAdminAuth } from './context/AdminAuthContext';
 import { supabase } from './config/supabase';
 import ProtectedRoute from './config/ProtectedRoute';
-import HomePageLoggedIn from './pages/HomePageLoggedIn';
+import HomePageLoggedIn from './pages/HomepageLoggedIn';
 
 
 const HomePageLoggedOut = lazy(() => import('./pages/HomePageLoggedOut'));
@@ -17,6 +17,7 @@ const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ApprovedBookingsCalendar = lazy(() => import('./pages/ApprovedBookingsCalendar'));
 const ExploreParish = lazy(() => import('./pages/ExploreParish'));
+const SetPasswordPage = lazy(() => import('./pages/SetPasswordPage'));
 
 
 const theme = createTheme({
@@ -53,9 +54,14 @@ const AppContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { isAdmin, loading: adminLoading } = useAdminAuth();
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    console.log('Logging out...');
+
+    // First, sign out from Supabase
+    await supabase.auth.signOut();
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('userData');
+    setIsAuthenticated(false);
     navigate('/');
   }, [navigate]);
 
@@ -63,6 +69,7 @@ const AppContent = () => {
     let mounted = true;
 
     const checkAuth = async () => {
+
       try {
         // First check localStorage for cached auth state
         const cachedAuth = localStorage.getItem('isAuthenticated');
@@ -124,7 +131,11 @@ const AppContent = () => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         await checkAuth();
       } else if (event === 'SIGNED_OUT') {
-        handleLogout();
+        // cleanup here directly
+        localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('userData');
+        setIsAuthenticated(false);
+        navigate('/');
       }
     });
 
@@ -183,6 +194,9 @@ const AppContent = () => {
             <ProtectedRoute isAuthenticated={isAuthenticated} onLoginClick={() => setShowLogin(true)}>
               <ProfilePage onLogout={handleLogout} />
             </ProtectedRoute>
+          } />
+          <Route path="/set-password" element={
+            <SetPasswordPage />
           } />
           {/* Admin routes */}
           <Route path="/admin/login" element={

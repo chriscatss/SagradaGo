@@ -8,7 +8,7 @@ const ExploreParish = () => {
   return (
     <div className="explore-parish">
       <div className="explore-header">
-        <Link to="/" className="back-button">
+        <Link to="/home" className="back-button">
           <FaArrowLeft /> Back to Home
         </Link>
         <h1>Virtual Tour of Sagrada Familia Parish</h1>

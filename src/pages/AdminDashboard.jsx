@@ -38,42 +38,110 @@ import {
   Autocomplete,
   FormControl,
   Select,
+  Divider,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import HistoryIcon from '@mui/icons-material/History';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
+import { ChurchOutlined, DisplaySettings, TableChart } from '@mui/icons-material';
+import { applyFilters } from '../utils/admin-functions/applyFilters';
+import { handleChangeRowsPerPage, handleColumnClick, handleColumnToggle, handleFilterClick } from '../utils/admin-functions/handleFilterOptions';
+import exportToCSV from '../utils/admin-functions/exportToCSV';
+import AdminSacramentDialog from '../components/dialog/AdminSacramentDialog';
+import { handleSacramentSave, handleSave } from '../utils/admin-functions/handleSave';
+import getDisplaySacrament from '../utils/admin-functions/displaySacrament';
+import { BarChartLegend, PieChartLegend } from '../components/ChartLegends';
+import { handleAdd, handleSacramentAdd } from '../utils/admin-functions/handleAdd';
+import { handleEdit, handleSacramentEdit } from '../utils/admin-functions/handleEdit';
+import { handleCloseDialog, handleCloseSacramentDialog } from '../utils/admin-functions/handleCloseDialog';
+import { formatDisplayValue } from '../utils/admin-functions/formatDatabaseValue';
+import SacramentFormCard from '../components/SacramentForms';
+import fetchSacramentForms from '../utils/admin-functions/fetch-documents/fetchSacramentForms';
+import BaptismSacramentForm from '../components/sacramentFormsSpecific/BaptismSacramentForm';
+import BurialSacramentForm from '../components/sacramentFormsSpecific/BurialSacramentForm';
+import deleteSacramentDocuments from '../utils/admin-functions/delete-documents/deleteSacramentDocuments';
+import restoreSacramentDocuments from '../utils/admin-functions/delete-documents/restoreSacramentDocuments';
+import permanentlyDeleteSacramentDocuments from '../utils/admin-functions/delete-documents/permanentlyDeleteSacramentDocuments';
+import WeddingSacramentForm from '../components/sacramentFormsSpecific/WeddingSacramentForm';
+
+
+const COMMON_BOOKING_STRUCTURE = {
+  fields: [
+    'user_firstname',
+    'user_lastname', 
+    'booking_status',
+    'booking_date',
+    'booking_time',
+    'booking_pax',
+    'booking_transaction',
+    'price',
+    'paid',
+    'form',
+  ],
+  requiredFields: ['booking_date', 'booking_time', 'booking_pax', 'booking_status', 'user_id']
+};
+
+const BOOKING_TABLE_STRUCTURES = {
+  wedding: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'Wedding'
+  },
+  baptism: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'Baptism',
+  },
+  confession: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'Confession'
+  },
+  anointing: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'Anointing'
+  },
+  communion: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'First Communion'
+  },
+  burial: {
+    ...COMMON_BOOKING_STRUCTURE,
+    displayName: 'Burial',
+  }
+};
 
 // Define table structures
 const TABLE_STRUCTURES = {
   booking_tbl: {
     fields: [
+      // 'user_id',
+      'user_firstname',
+      'user_lastname',
+      'booking_status',
       'booking_sacrament',
       'booking_date',
       'booking_time',
       'booking_pax',
       'booking_transaction',
-      'booking_status',
-      'user_id'
+      'price',
+      'paid',
     ],
-    displayName: 'Bookings',
+    displayName: 'All Sacrament Bookings',
     requiredFields: ['booking_sacrament', 'booking_date', 'booking_time', 'booking_pax', 'booking_status', 'user_id']
   },
   document_tbl: {
     fields: [
       'document_firstname',
-      'document_lastname',
       'document_middle',
+      'document_lastname',
       'document_gender',
-      'document_bday',
       'document_mobile',
+      'document_bday',
       'document_status',
       'document_baptismal',
       'document_confirmation',
@@ -84,24 +152,38 @@ const TABLE_STRUCTURES = {
   },
   donation_tbl: {
     fields: [
+      // 'user_id',
+      'user_firstname',
+      'user_lastname',
       'donation_amount',
       'donation_intercession',
-      'user_id'
+      'date_created',
     ],
     displayName: 'Donations',
     requiredFields: ['donation_amount']
   },
-  employee_tbl: {
+  request_tbl: {
     fields: [
-      'employee_email',
-      'employee_firstname',
-      'employee_lastname',
-      'employee_mobile',
-      'employee_bday',
-      'employee_role'
+      // 'user_id',
+      'user_firstname',
+      'user_lastname',
+      'request_baptismcert',
+      'request_confirmationcert',
+      'document_id'
     ],
-    displayName: 'Employees',
-    requiredFields: ['employee_email', 'employee_firstname', 'employee_lastname']
+    displayName: 'Requests',
+    requiredFields: ['user_id']
+  },
+  admin_tbl: {
+    fields: [
+      'admin_firstname',
+      'admin_lastname',
+      'admin_email',
+      'admin_mobile',
+      'admin_bday',
+    ],
+    displayName: 'Admins',
+    requiredFields: ['admin_email', 'admin_firstname', 'admin_lastname']
   },
   priest_tbl: {
     fields: [
@@ -113,27 +195,17 @@ const TABLE_STRUCTURES = {
     displayName: 'Priests',
     requiredFields: ['priest_name']
   },
-  request_tbl: {
-    fields: [
-      'request_baptismcert',
-      'request_confirmationcert',
-      'user_id',
-      'document_id'
-    ],
-    displayName: 'Requests',
-    requiredFields: ['user_id']
-  },
   user_tbl: {
     fields: [
       'user_firstname',
       'user_middle',
       'user_lastname',
       'user_gender',
-      'user_status',
+      // 'user_status',
+      'user_email',
       'user_mobile',
       'user_bday',
-      'user_email',
-      'user_image'
+      // 'user_image'
     ],
     displayName: 'Users',
     requiredFields: ['user_email', 'user_firstname', 'user_lastname']
@@ -161,6 +233,21 @@ const AdminDashboard = () => {
     pendingBookings: 0,
     approvedBookings: 0,
     totalDonations: 0,
+    totalAdmins: 0,
+    totalPriests: 0,
+    availablePriests: 0,
+    genderCounts: [],
+    pendingBySacrament: [],
+    documentByStatusCounts: [],
+    monthlyDonations: [],
+    donationSummary: {
+      today: 0,
+      lastWeek: 0,
+      thisMonth: 0,
+      average: 0,
+      yearTotal: 0,
+    },
+    mostCommonSacraments: '',
     recentTransactions: []
   });
   const [transactionLogs, setTransactionLogs] = useState([]);
@@ -168,8 +255,6 @@ const AdminDashboard = () => {
   const [openDeletedDialog, setOpenDeletedDialog] = useState(false);
   const [deletedRecords, setDeletedRecords] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [tableStats, setTableStats] = useState({});
   const [users, setUsers] = useState([]);
   const [activeFilters, setActiveFilters] = useState({});
@@ -178,6 +263,28 @@ const AdminDashboard = () => {
   const [columnAnchorEl, setColumnAnchorEl] = useState(null);
   const navigate = useNavigate();
   const { isAdmin, loading: authLoading, logout, adminData } = useAdminAuth();
+  const CHART_COLORS = ['#0088FE', '#FF6B6B', '#FFBB28', '#FF8042', '#8884D8', '#00C49F'];
+  
+  const [bookingTables, setBookingTables] = useState(Object.keys(BOOKING_TABLE_STRUCTURES));
+  const [selectedSacrament, setSelectedSacrament] = useState(null);
+  const [openSacramentDialog, setOpenSacramentDialog] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [sacramentSortConfig, setSacramentSortConfig] = useState({ key: null, direction: 'desc' });
+  const [sacramentTableData, setSacramentTableData] = useState([]);
+  const [sacramentFilteredData, setSacramentFilteredData] = useState([]);
+  const [sacramentTableStats, setSacramentTableStats] = useState({});
+  const [sacramentSearchQuery, setSacramentSearchQuery] = useState('');
+  const [sacramentActiveFilters, setSacramentActiveFilters] = useState({});
+  const [sacramentVisibleColumns, setSacramentVisibleColumns] = useState({});
+  const [sacramentFilterAnchorEl, setSacramentFilterAnchorEl] = useState(null);
+  const [sacramentColumnAnchorEl, setSacramentColumnAnchorEl] = useState(null);
+  const [sacramentPage, setSacramentPage] = useState(0);
+  const [sacramentRowsPerPage, setSacramentRowsPerPage] = useState(10);
+
+  // for dispplaying sacrament forms
+  const [cardOpen, setCardOpen] = useState(false);
+  const [cardTitle, setCardTitle] = useState('');
+  const [cardContent, setCardContent] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -233,6 +340,101 @@ const AdminDashboard = () => {
         .from('donation_tbl')
         .select('*', { count: 'exact' });
 
+      // Fetch total admins
+      const { count: totalAdmins } = await supabase
+        .from('admin_tbl')
+        .select('*', { count: 'exact' });
+
+      // Fetch total priests
+      const { count: totalPriests } = await supabase
+        .from('priest_tbl')
+        .select('*', { count: 'exact' });
+
+      const { count: availablePriests } = await supabase
+        .from('priest_tbl')
+        .select('*', { count: 'exact' })
+        .eq('priest_availability', 'Yes');
+
+      const { data: genders } = await supabase
+        .from('user_tbl')
+        .select('user_gender');
+      const genderCounts = [
+        { name: 'Male', value: genders.filter(g => g.user_gender === 'm').length },
+        { name: 'Female', value: genders.filter(g => g.user_gender === 'f').length },
+        { name: 'Rather Not Say', value: genders.filter(g => !['m', 'f'].includes(g.user_gender)).length }
+      ];
+
+      // Pending bookings by sacrament
+      const { data: pendingSacraments } = await supabase
+        .from('booking_tbl')
+        .select('booking_sacrament')
+        .eq('booking_status', 'pending');
+      
+      // Create the Sacrament Map
+      const sacramentMap = {};
+      pendingSacraments.forEach((sacrament) => {
+        sacramentMap[sacrament.booking_sacrament] = (sacramentMap[sacrament.booking_sacrament] || 0) + 1;
+      });
+
+      const pendingBySacrament = Object.entries(sacramentMap).map(([sacrament, count]) => ({
+        sacrament, count
+      }));
+
+      // Most common sacrament
+      const { data: allSacraments } = await supabase
+        .from('booking_tbl')
+        .select('booking_sacrament');
+
+
+      const countSac = {};
+      allSacraments.forEach((sacrament) => {
+        countSac[sacrament.booking_sacrament] = (countSac[sacrament.booking_sacrament] || 0) + 1;
+      });
+
+      const mostCommonSacraments = Object.entries(countSac).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+      // Donations (last 6 months)
+      let lastSixMonths = new Date();
+      lastSixMonths.setMonth(lastSixMonths.getMonth() - 6);
+      const { data: donationsData } = await supabase
+        .from('donation_tbl')
+        .select('*')
+        .gte('date_created', lastSixMonths.toISOString());
+      const donations = donationsData.map(d => ({
+        ...d,
+        date: new Date(d.date_created),
+      }));
+      const monthlyDonations = Array.from({ length: 6 }).map((_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - (5 - i));
+        const label = d.toLocaleString('default', { month: 'short' });
+        const total = donations
+          .filter(entry => entry.date.getMonth() === d.getMonth() && entry.date.getFullYear() === d.getFullYear())
+          .reduce((acc, curr) => acc + (curr.donation_amount || 0), 0);
+
+        return { month: label, amount: total };
+      });
+
+      // Donation summary
+      const today = new Date();
+      const todayDonations = donations
+        .filter(d => d.date.toDateString() === today.toDateString())
+        .reduce((a, b) => a + b.donation_amount, 0);
+
+      const lastWeekTotal = donations
+        .filter(d => d.date >= new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000))
+        .reduce((a, b) => a + b.donation_amount, 0);
+
+      const thisMonthTotal = donations
+        .filter(d => d.date.getMonth() === today.getMonth() && d.date.getFullYear() === today.getFullYear())
+        .reduce((a, b) => a + b.donation_amount, 0);
+
+      const yearTotal = donations
+        .filter(d => d.date.getFullYear() === today.getFullYear())
+        .reduce((a, b) => a + b.donation_amount, 0);
+
+      const averageDonation = donations.length ? yearTotal / donations.length : 0;
+
       // Fetch recent transactions
       const { data: recentTransactions } = await supabase
         .from('transaction_logs')
@@ -240,12 +442,27 @@ const AdminDashboard = () => {
         .order('timestamp', { ascending: false })
         .limit(5);
 
+
       setStats({
         totalUsers,
         totalDocuments,
         pendingBookings,
         approvedBookings,
         totalDonations,
+        totalAdmins,
+        totalPriests,
+        availablePriests,
+        genderCounts,
+        pendingBySacrament,
+        monthlyDonations,
+        donationSummary: {
+          today: todayDonations,
+          lastWeek: lastWeekTotal,
+          thisMonth: thisMonthTotal,
+          average: Math.round(averageDonation),
+          yearTotal
+        },
+        mostCommonSacraments,
         recentTransactions
       });
     } catch (error) {
@@ -257,9 +474,11 @@ const AdminDashboard = () => {
     try {
       setTables(Object.keys(TABLE_STRUCTURES));
       setLoading(false);
+      setBookingLoading(false);
     } catch (error) {
       setError('Error fetching tables: ' + error.message);
       setLoading(false);
+      setBookingLoading(false);
     }
   };
 
@@ -277,6 +496,80 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/admin/login');
+  };
+
+  const handleSacramentTableSelect = async (sacrament) => {
+    setSelectedSacrament(sacrament);
+    setBookingLoading(true);
+    console.log("sacrament", sacrament);
+    try {
+      let query = supabase
+          .from('booking_tbl')
+          .select(`*, user_tbl:user_id(user_firstname, user_lastname)`)
+          .order('booking_date', { ascending: false })
+          .order('booking_time', { ascending: false });
+      if (sacrament === 'wedding') {
+        // query = supabase
+        //   .from('booking_tbl')
+        //   .select(`*, user_tbl:user_id(user_firstname, user_lastname), booking_wedding_docu_tbl:wedding_docu_id(groom_fullname, bride_fullname, groom_1x1, bride_1x1)`)
+        //   .order('booking_date', { ascending: false })
+        //   .order('booking_time', { ascending: false })
+        //   .eq('booking_sacrament', 'Wedding');
+        query = query.eq('booking_sacrament', 'Wedding')
+      } else if (sacrament === 'baptism') {
+        query = query.eq('booking_sacrament', 'Baptism');
+      } else if (sacrament === 'confession')  {
+        query = query.eq('booking_sacrament', 'Confession');
+      } else if (sacrament === 'anointing') {
+        query = query.eq('booking_sacrament', 'Anointing of the Sick');
+      } else if (sacrament === 'communion') {
+        query = query.eq('booking_sacrament', 'First Communion');
+      } else if (sacrament === 'burial') {
+        query = query.eq('booking_sacrament', 'Burial');  
+      }
+
+      let { data, error } = await query;
+      
+      console.log("Sacrament Data fetched:", data);
+      if (error) throw error;
+
+      let transformedData = [];
+      transformedData = data.map((record) => {
+        let newrecord = {
+          ...record,
+          user_firstname: record.user_tbl ? record.user_tbl.user_firstname : '',
+          user_lastname: record.user_tbl ? record.user_tbl.user_lastname : '',
+        };
+        delete newrecord.user_tbl; // Remove the user_tbl object
+        if (newrecord.booking_wedding_docu_tbl) {
+          newrecord.groom_fullname = newrecord.booking_wedding_docu_tbl.groom_fullname || '';
+          newrecord.bride_fullname = newrecord.booking_wedding_docu_tbl.bride_fullname || '';
+          newrecord.groom_1x1 = newrecord.booking_wedding_docu_tbl.groom_1x1 || '';
+          newrecord.bride_1x1 = newrecord.booking_wedding_docu_tbl.bride_1x1 || '';
+          delete newrecord.booking_wedding_docu_tbl; // Remove the wedding document object
+        }
+        return newrecord;
+      })
+
+      setSacramentTableData(transformedData || []);
+      setSacramentFilteredData(transformedData || []);
+      setSacramentSearchQuery('');
+      // Set initial sort config based on table type
+      setSacramentSortConfig({ key: 'booking_date', direction: 'desc' });
+      setSacramentPage(0);
+    } catch (error) {
+      setError('Error fetching table data: ' + error.message);
+    } finally {
+      setBookingLoading(false);
+    }
+
+    setBookingLoading(false);
+
+  }
+
   const handleTableSelect = async (tableName) => {
     setSelectedTable(tableName);
     setLoading(true);
@@ -285,21 +578,49 @@ const AdminDashboard = () => {
       
       // Apply default sorting based on table type
       if (tableName === 'booking_tbl') {
-        query = query.order('booking_date', { ascending: false })
-                    .order('booking_time', { ascending: false });
+        query = supabase.from(tableName)
+          .select(`*, user_tbl:user_id(user_firstname, user_lastname)`)
+          .order('booking_date', { ascending: false })
+          .order('booking_time', { ascending: false });
       } else if (tableName === 'document_tbl') {
         query = query.order('document_bday', { ascending: false });
       } else if (tableName === 'user_tbl') {
         query = query.order('user_bday', { ascending: false });
-      } else if (tableName === 'employee_tbl') {
-        query = query.order('employee_bday', { ascending: false });
+      } else if (tableName === 'admin_tbl') {
+        query = query.order('admin_bday', { ascending: false });
+      } else if (tableName === 'donation_tbl') {
+        query = supabase.from(tableName)
+          .select(`*, user_tbl:user_id(user_firstname, user_lastname)`)
+          .order('date_created', { ascending: false });
+      } else if (tableName === 'request_tbl') {
+        query = supabase.from(tableName)
+          .select(`*, user_tbl:user_id(user_firstname, user_lastname)`)
+          .order('date_created', { ascending: false });
       }
 
-      const { data, error } = await query;
 
+      let { data, error } = await query;
+      console.log("Data fetched for table:", tableName, data);
       if (error) throw error;
-      setTableData(data || []);
-      setFilteredData(data || []);
+
+      let transformedData = [];
+      if (tableName === 'booking_tbl' || tableName === 'donation_tbl' || tableName === 'request_tbl') {
+        transformedData = data.map((record) => {
+          let newrecord = {
+            ...record,
+            user_firstname: record.user_tbl ? record.user_tbl.user_firstname : '',
+            user_lastname: record.user_tbl ? record.user_tbl.user_lastname : '',
+          };
+          delete newrecord.user_tbl; // Remove the user_tbl object
+          return newrecord;
+        })
+      } else {
+        transformedData = data;
+      }
+      console.log("transformedData", transformedData);
+
+      setTableData(transformedData || []);
+      setFilteredData(transformedData || []);
       setSearchQuery('');
       
       // Set initial sort config based on table type
@@ -309,8 +630,8 @@ const AdminDashboard = () => {
         setSortConfig({ key: 'document_bday', direction: 'desc' });
       } else if (tableName === 'user_tbl') {
         setSortConfig({ key: 'user_bday', direction: 'desc' });
-      } else if (tableName === 'employee_tbl') {
-        setSortConfig({ key: 'employee_bday', direction: 'desc' });
+      } else if (tableName === 'admin_tbl') {
+        setSortConfig({ key: 'admin_bday', direction: 'desc' });
       } else {
         setSortConfig({ key: null, direction: 'desc' });
       }
@@ -321,37 +642,6 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
-  };
-
-  const generateTransactionId = () => {
-    const timestamp = new Date().getTime();
-    const random = Math.floor(Math.random() * 1000);
-    return `TRX-${timestamp}-${random}`;
-  };
-
-  const handleAdd = () => {
-    if (selectedTable === 'booking_tbl') {
-      const transactionId = generateTransactionId();
-      setFormData({
-        booking_status: 'pending',
-        booking_transaction: transactionId
-      });
-    } else {
-      setFormData({});
-    }
-    setEditingRecord(null);
-    setOpenDialog(true);
-  };
-
-  const handleEdit = (record) => {
-    setFormData(record);
-    setEditingRecord(record.id);
-    setOpenDialog(true);
   };
 
   const handleDelete = async (id) => {
@@ -423,6 +713,126 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSacramentDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this record?')) {
+      try {
+        // Get the record to be deleted
+        const recordToDelete = sacramentTableData.find(r => r.id === id);
+        console.log('Record to delete:', recordToDelete);
+        const bookingSacrament = recordToDelete.booking_sacrament;
+        const specificId = bookingSacrament === 'Wedding' 
+          ? recordToDelete.wedding_docu_id 
+          : bookingSacrament === 'Baptism'
+            ? recordToDelete.baptism_docu_id  
+            : bookingSacrament === 'Burial'
+              ? recordToDelete.burial_docu_id
+              : null;
+        // Store in deleted_records table
+        const { data: insertData, error: insertError } = await supabase
+          .from('deleted_records')
+          .insert({
+            original_table: 'booking_tbl',
+            record_id: id,
+            record_data: recordToDelete,
+            deleted_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
+            deleted_by_email: adminData?.email || 'Unknown'
+          })
+          .select();
+
+        let specificInsertData = null;
+        let specificTable = null;
+        if (specificId) {
+          if (bookingSacrament === 'Wedding') {
+            // Remove the other columns in recordToDelete
+            // const columnsToRemove = ['groom_fullname', 'bride_fullname', 'groom_1x1', 'bride_1x1'];
+            // columnsToRemove.forEach(col => {
+            //   delete recordToDelete[col];
+            // });
+            
+            
+            // Delete the wedding document if it exists
+            specificTable = 'booking_wedding_docu_tbl';
+          } else if (bookingSacrament === 'Baptism') {
+            // Delete the Baptism document if it exists
+            specificTable = 'booking_baptism_docu_tbl';
+            
+          } else if (bookingSacrament === 'Burial') {
+            // Delete the Burial document if it exists
+            specificTable = 'booking_burial_docu_tbl';
+          }
+
+          if (specificTable) {
+            deleteSacramentDocuments({
+                table: specificTable,
+                sacrament: bookingSacrament,
+                specificId: specificId,
+                adminData,
+            });
+          }
+        }
+
+        if (insertError) {
+          console.error('Error inserting into deleted_records:', {
+            error: insertError,
+            data: {
+              original_table: 'booking_tbl',
+              record_id: id,
+              record_data: recordToDelete,
+              deleted_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
+              deleted_by_email: adminData?.email || 'Unknown'
+            }
+          });
+          throw insertError;
+        }
+
+        console.log('Successfully inserted into deleted_records:', insertData);
+
+        // Log the deletion with admin info
+        await supabase
+          .from('transaction_logs')
+          .insert({
+            table_name: 'booking_tbl',
+            action: 'DELETE',
+            record_id: id,
+            old_data: recordToDelete,
+            new_data: null,
+            performed_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
+            performed_by_email: adminData?.email || 'Unknown'
+          });
+
+        // Delete from original table
+        const { error: deleteError } = await supabase
+          .from('booking_tbl')
+          .delete()
+          .eq('id', id);
+        
+        if (specificId && specificTable) {
+          // Delete the wedding document if it exists
+          const { error: specificDeleteError } = await supabase
+            .from(specificTable)
+            .delete()
+            .eq('id', specificId);
+          if (specificDeleteError) {
+            console.error('Error deleting specific document:', specificDeleteError);
+            throw specificDeleteError;
+          }
+        }
+
+        if (deleteError) {
+          console.error('Error deleting from original table:', deleteError);
+          throw deleteError;
+        }
+
+        setSuccess('Record moved to trash');
+        handleSacramentTableSelect(selectedSacrament);
+        fetchStats();
+      } catch (error) {
+        console.error('Error in handleSacramentDelete:', error);
+        setError('Error deleting record: ' + error.message);
+      }
+    }
+  }
+
   const handleViewDeleted = async () => {
     try {
       console.log('Fetching deleted records...');
@@ -463,8 +873,17 @@ const AdminDashboard = () => {
         throw new Error('Invalid record data format');
       }
 
+      // remnove user_firstname and user_lastname if the original table is not user_tbl
+      if (record.original_table != 'user_tbl') {
+        if ('user_firstname' in recordToRestore) {
+          delete recordToRestore.user_firstname;
+        }
+        if ('user_lastname' in recordToRestore) {
+          delete recordToRestore.user_lastname;
+        }
+      }
       console.log('Parsed record data:', recordToRestore);
-      
+    
       // Remove any fields that shouldn't be in the insert
       delete recordToRestore.id; // Remove the old ID to let the database generate a new one
       
@@ -472,10 +891,39 @@ const AdminDashboard = () => {
       if (!recordToRestore || typeof recordToRestore !== 'object') {
         throw new Error('Invalid record data structure');
       }
+      // if booking table, handle specific document restoration first
+      if (record.original_table === 'booking_tbl') {
+        // Restore first the specific document tables to ensure foreign key integrity
+        if (recordToRestore.booking_sacrament === 'Wedding' && recordToRestore.wedding_docu_id) {
+          
+          const specificId = await restoreSacramentDocuments({
+            original_table: 'booking_wedding_docu_tbl',
+            record_id: recordToRestore.wedding_docu_id,
+            sacrament: recordToRestore.booking_sacrament,
+          });
+          recordToRestore.wedding_docu_id = specificId;
+          
+        } else if (recordToRestore.booking_sacrament === 'Baptism' && recordToRestore.baptism_docu_id) {
+          // Restore baptism document
+          const specificId = await restoreSacramentDocuments({
+            original_table: 'booking_baptism_docu_tbl',
+            record_id: recordToRestore.baptism_docu_id,
+            sacrament: recordToRestore.booking_sacrament,
+          });
+          recordToRestore.baptism_docu_id = specificId;
+          
+        } else if (recordToRestore.booking_sacrament === 'Burial' && recordToRestore.burial_docu_id) {
+          // Restore burial document
+          const specificId = await restoreSacramentDocuments({
+            original_table: 'booking_burial_docu_tbl',
+            record_id: recordToRestore.burial_docu_id,
+            sacrament: recordToRestore.booking_sacrament,
+          });
+          recordToRestore.burial_docu_id = specificId;
+        }
+      }
 
-      console.log('Record to restore:', recordToRestore);
-      console.log('Target table:', record.original_table);
-
+      // ----------------------------------
       // Insert the record back into its original table
       const { data: restoredData, error: restoreError } = await supabase
         .from(record.original_table)
@@ -515,7 +963,11 @@ const AdminDashboard = () => {
 
       setSuccess('Record restored successfully');
       handleViewDeleted();
-      handleTableSelect(record.original_table);
+      if (record.original_table === 'booking_tbl') {
+        handleSacramentTableSelect(selectedSacrament);
+      } else {
+        handleTableSelect(record.original_table);
+      }
       fetchStats();
     } catch (error) {
       console.error('Error in handleRestore:', error);
@@ -526,6 +978,63 @@ const AdminDashboard = () => {
   const handlePermanentDelete = async (record) => {
     if (window.confirm('Are you sure you want to permanently delete this record? This action cannot be undone.')) {
       try {
+        // If booking sacrament, delete the specific document as well
+        if (record.original_table === 'booking_tbl') {
+          const { data: originalData, error: originalError } = await supabase
+            .from('deleted_records')
+            .select('*')
+            .eq('id', record.id);
+          if (originalError) {
+            console.error('Error fetching original record data:', originalError);
+            throw originalError;
+          }
+          if (originalData.length === 0) {
+            console.error('Original record not found in deleted records:', record.id);
+            throw new Error('Original record not found in deleted records');
+          }
+          const originalRecord = JSON.parse(originalData[0].record_data);
+
+          console.log('Parsed original record:', originalRecord);
+
+          if (originalRecord.booking_sacrament === 'Wedding') {
+            await permanentlyDeleteSacramentDocuments({
+              original_table: 'booking_wedding_docu_tbl',
+              record_id: originalRecord.wedding_docu_id,
+            });
+            // const { data: weddingData, error: weddingError } = await supabase
+            //   .from('deleted_records')
+            //   .select("*")
+            //   .eq('original_table', 'booking_wedding_docu_tbl')
+            //   .eq('record_id', originalRecord.wedding_docu_id);
+            // if (weddingError) {
+            //   console.error('Error fetching wedding document from deleted records:', weddingError);
+            //   throw weddingError;
+            // }
+
+            // if (weddingData.length === 0) {
+            // }
+            // // Deelte the record as well
+            // const weddingDoc = weddingData[0];
+            // const { error: weddingDeleteError } = await supabase
+            //   .from('deleted_records')
+            //   .delete()
+            //   .eq('id', weddingDoc.id);
+            // if (weddingDeleteError) {
+            //   console.error('Error deleting wedding document from deleted records:', weddingDeleteError);
+            //   throw weddingDeleteError;
+            // }
+          } else if (originalRecord.booking_sacrament === 'Baptism') {
+            await permanentlyDeleteSacramentDocuments({
+              original_table: 'booking_baptism_docu_tbl',
+              record_id: originalRecord.baptism_docu_id,
+            });
+          } else if (originalRecord.booking_sacrament === 'Burial') {
+            await permanentlyDeleteSacramentDocuments({
+              original_table: 'booking_burial_docu_tbl',
+              record_id: originalRecord.burial_docu_id,
+            });
+          }
+        }
         const { error } = await supabase
           .from('deleted_records')
           .delete()
@@ -538,213 +1047,6 @@ const AdminDashboard = () => {
       } catch (error) {
         setError('Error permanently deleting record: ' + error.message);
       }
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      // Add password validation for user creation
-      if (selectedTable === 'user_tbl' && !editingRecord) {
-        if (formData.password !== formData.confirmPassword) {
-          setError('Password and Confirm Password do not match');
-          return;
-        }
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters long');
-          return;
-        }
-      }
-
-      const requiredFields = TABLE_STRUCTURES[selectedTable].requiredFields;
-      const missingFields = requiredFields.filter(field => !formData[field]);
-      
-      if (missingFields.length > 0) {
-        setError(`Missing required fields: ${missingFields.join(', ')}`);
-        return;
-      }
-
-      // Booking conflict logic
-      if (selectedTable === 'booking_tbl') {
-        // Only check for conflicts on create or if date/time changed on edit
-        const bookingDate = formData.booking_date;
-        const bookingTime = formData.booking_time;
-        if (bookingDate && bookingTime) {
-          // Fetch approved bookings for the same date
-          const { data: approvedBookings, error: conflictError } = await supabase
-            .from('booking_tbl')
-            .select('*')
-            .eq('booking_date', bookingDate)
-            .eq('booking_status', 'approved');
-          if (conflictError) {
-            setError('Error checking for booking conflicts.');
-            return;
-          }
-          // Convert booking time to minutes
-          const [h, m] = bookingTime.split(':');
-          const bookingMinutes = parseInt(h, 10) * 60 + parseInt(m, 10);
-          // Check for conflicts within 1 hour (60 minutes)
-          const hasConflict = approvedBookings.some(b => {
-            if (editingRecord && b.id === editingRecord) return false; // skip self when editing
-            const [bh, bm] = (b.booking_time || '').split(':');
-            if (!bh || !bm) return false;
-            const bMinutes = parseInt(bh, 10) * 60 + parseInt(bm, 10);
-            return Math.abs(bMinutes - bookingMinutes) < 60;
-          });
-          if (hasConflict) {
-            setError('There is already an approved booking within 1 hour of the selected time. Please choose a different time.');
-            return;
-          }
-        }
-      }
-
-      if (editingRecord) {
-        // Handle updates
-        console.log('Editing record:', editingRecord);
-        console.log('Current form data:', formData);
-        
-        // Log the update
-        const oldRecord = tableData.find(r => r.id === editingRecord);
-        console.log('Found old record:', oldRecord);
-        
-        if (!oldRecord) {
-          console.error('Could not find old record for ID:', editingRecord);
-          setError('Error: Could not find the record to update');
-          return;
-        }
-
-        // Update the record first
-        const { error: updateError } = await supabase
-          .from(selectedTable)
-          .update(formData)
-          .eq('id', editingRecord);
-
-        if (updateError) {
-          console.error('Error updating record:', updateError);
-          throw updateError;
-        }
-
-        // Then log the transaction with admin info
-        try {
-          const { error: logError } = await supabase
-            .from('transaction_logs')
-            .insert({
-              table_name: selectedTable,
-              action: 'UPDATE',
-              record_id: editingRecord,
-              old_data: oldRecord,
-              new_data: formData,
-              performed_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
-              performed_by_email: adminData?.email || 'Unknown'
-            });
-            
-          if (logError) {
-            console.error('Error logging transaction:', logError);
-            throw logError;
-          }
-          console.log('Successfully logged transaction');
-        } catch (logError) {
-          console.error('Failed to log transaction:', logError);
-          throw logError;
-        }
-
-        setSuccess('Record updated successfully');
-      } else {
-        // Handle new record creation
-        if (selectedTable === 'user_tbl') {
-          // Create new user
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: formData.user_email,
-            password: formData.password,
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`
-            }
-          });
-
-          if (authError) {
-            console.error('Auth error:', authError);
-            throw authError;
-          }
-
-          if (!authData?.user?.id) {
-            throw new Error('No user ID returned from auth signup');
-          }
-
-          // Create user profile in user_tbl
-          const userProfile = {
-            id: authData.user.id,
-            user_firstname: formData.user_firstname,
-            user_middle: formData.user_middle || null,
-            user_lastname: formData.user_lastname,
-            user_gender: formData.user_gender,
-            user_status: formData.user_status,
-            user_mobile: formData.user_mobile,
-            user_bday: formData.user_bday,
-            user_email: formData.user_email,
-          };
-
-          console.log('Creating user profile:', userProfile);
-
-          // Insert into user_tbl
-          const { error: profileError } = await supabase
-            .from('user_tbl')
-            .insert([userProfile]);
-
-          if (profileError) {
-            console.error('Profile error:', profileError);
-            // If profile creation fails, try to clean up the auth user
-            try {
-              await supabase.auth.admin.deleteUser(authData.user.id);
-            } catch (deleteError) {
-              console.error('Failed to clean up auth user:', deleteError);
-            }
-            throw profileError;
-          }
-
-          // Log the creation with admin info
-          await supabase
-            .from('transaction_logs')
-            .insert({
-              table_name: selectedTable,
-              action: 'CREATE',
-              record_id: authData.user.id,
-              old_data: null,
-              new_data: userProfile,
-              performed_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
-              performed_by_email: adminData?.email || 'Unknown'
-            });
-
-          setSuccess('User created successfully. Please check email for verification.');
-        } else {
-          // Handle other tables
-          const { error: insertError } = await supabase
-            .from(selectedTable)
-            .insert([formData]);
-
-          if (insertError) throw insertError;
-
-          // Log the creation with admin info
-          await supabase
-            .from('transaction_logs')
-            .insert({
-              table_name: selectedTable,
-              action: 'CREATE',
-              record_id: formData.id,
-              old_data: null,
-              new_data: formData,
-              performed_by: adminData ? `${adminData.firstName} ${adminData.lastName}` : 'Unknown',
-              performed_by_email: adminData?.email || 'Unknown'
-            });
-
-          setSuccess('Record added successfully');
-        }
-      }
-
-      setOpenDialog(false);
-      handleTableSelect(selectedTable);
-      fetchStats();
-    } catch (error) {
-      console.error('Error in handleSave:', error);
-      setError('Error saving record: ' + error.message);
     }
   };
 
@@ -778,14 +1080,6 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatValue = (value) => {
-    if (value === null || value === undefined) return '-';
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (value instanceof Date) return value.toLocaleDateString();
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
   };
 
   const handleSort = (key) => {
@@ -822,118 +1116,68 @@ const AdminDashboard = () => {
     setFilteredData(sortedData);
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const handleFilterClick = (event) => {
-    setFilterAnchorEl(event.currentTarget);
-  };
-
-  const handleColumnClick = (event) => {
-    setColumnAnchorEl(event.currentTarget);
-  };
-
-  const handleFilterClose = () => {
-    setFilterAnchorEl(null);
-  };
-
-  const handleColumnClose = () => {
-    setColumnAnchorEl(null);
-  };
-
-  const handleColumnToggle = (field) => {
-    setVisibleColumns(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
-  };
-
-  const handleFilterChange = (field, value, type = 'contains') => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [field]: { value, type }
-    }));
-    applyFilters();
-  };
-
-  const applyFilters = () => {
-    let filtered = [...tableData];
-    
-    // Apply search query
-    if (searchQuery) {
-      filtered = filtered.filter(row => 
-        Object.values(row).some(value => 
-          String(value).toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
+  const handleSacramentSort = (key) => {
+    let direction = 'desc';
+    if (sacramentSortConfig.key === key && sacramentSortConfig.direction === 'desc') {
+      direction = 'asc';
     }
+    setSacramentSortConfig({ key, direction });
 
-    // Apply active filters
-    Object.entries(activeFilters).forEach(([field, { value, type }]) => {
-      if (value) {
-        filtered = filtered.filter(row => {
-          const cellValue = String(row[field]).toLowerCase();
-          const filterValue = String(value).toLowerCase();
-          
-          switch (type) {
-            case 'contains':
-              return cellValue.includes(filterValue);
-            case 'equals':
-              return cellValue === filterValue;
-            case 'starts':
-              return cellValue.startsWith(filterValue);
-            case 'ends':
-              return cellValue.endsWith(filterValue);
-            case 'greater':
-              return Number(cellValue) > Number(filterValue);
-            case 'less':
-              return Number(cellValue) < Number(filterValue);
-            case 'older_to_newer':
-              return true; // Handled in sorting
-            case 'newer_to_older':
-              return true; // Handled in sorting
-            default:
-              return cellValue.includes(filterValue);
-          }
-        });
+    const sortedData = [...sacramentFilteredData].sort((a, b) => {
+      if (a[key] === null) return 1;
+      if (b[key] === null) return -1;
+      
+      // Handle date fields
+      if (key.includes('date') || key.includes('bday') || key.includes('time')) {
+        const dateA = new Date(a[key]);
+        const dateB = new Date(b[key]);
+        return direction === 'desc' ? dateB - dateA : dateA - dateB;
       }
+      
+      // Handle numeric fields
+      if (typeof a[key] === 'number' && typeof b[key] === 'number') {
+        return direction === 'desc' ? b[key] - a[key] : a[key] - b[key];
+      }
+      
+      // Handle text fields
+      const valueA = String(a[key]).toLowerCase();
+      const valueB = String(b[key]).toLowerCase();
+      return direction === 'desc' 
+        ? valueB.localeCompare(valueA)
+        : valueA.localeCompare(valueB);
     });
 
-    // Apply sorting if active
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        if (a[sortConfig.key] === null) return 1;
-        if (b[sortConfig.key] === null) return -1;
-        
-        // Handle date fields
-        if (sortConfig.key.includes('date') || sortConfig.key.includes('bday') || sortConfig.key.includes('time')) {
-          const dateA = new Date(a[sortConfig.key]);
-          const dateB = new Date(b[sortConfig.key]);
-          return sortConfig.direction === 'desc' ? dateB - dateA : dateA - dateB;
-        }
-        
-        // Handle numeric fields
-        if (typeof a[sortConfig.key] === 'number' && typeof b[sortConfig.key] === 'number') {
-          return sortConfig.direction === 'desc' ? b[sortConfig.key] - a[sortConfig.key] : a[sortConfig.key] - b[sortConfig.key];
-        }
-        
-        // Handle text fields
-        const valueA = String(a[sortConfig.key]).toLowerCase();
-        const valueB = String(b[sortConfig.key]).toLowerCase();
-        return sortConfig.direction === 'desc'
-          ? valueB.localeCompare(valueA)
-          : valueA.localeCompare(valueB);
+    setSacramentFilteredData(sortedData);
+  }
+
+  const handleFilterChange = (isSacrament = false, field, value, type = 'contains') => {
+    let newFilter = isSacrament ? { ...sacramentActiveFilters } : { ...activeFilters };
+
+    newFilter = {
+      ...newFilter,
+      [field]: { value, type }
+    };
+    if (isSacrament) {
+      setSacramentActiveFilters(newFilter);
+      applyFilters({
+        tableData: sacramentTableData,
+        searchQuery: sacramentSearchQuery,
+        activeFilters: newFilter,
+        sortConfig: sacramentSortConfig,
+        setFilteredData: setSacramentFilteredData,
+        calculateTableStats: sacramentCalculateTableStats,
+      });
+    } else {
+      setActiveFilters(newFilter);
+      applyFilters({
+        tableData,
+        searchQuery,
+        activeFilters: newFilter,
+        sortConfig,
+        setFilteredData,
+        calculateTableStats,
       });
     }
-
-    setFilteredData(filtered);
-    calculateTableStats(filtered);
   };
 
   const calculateTableStats = (data) => {
@@ -950,54 +1194,27 @@ const AdminDashboard = () => {
     setTableStats(stats);
   };
 
-  const exportToCSV = (data, filename) => {
-    const headers = {
-      transaction_logs: ['Timestamp', 'Table', 'Action', 'Record ID', 'Performed By', 'Performed By Email', 'Old Data', 'New Data'],
-      deleted_records: ['Deleted At', 'Table', 'Record ID', 'Deleted By', 'Deleted By Email', 'Record Data']
-    };
+  const sacramentCalculateTableStats = (data) => {
+    const stats = {};
+    BOOKING_TABLE_STRUCTURES[selectedSacrament]?.fields.forEach(field => {
+      if (typeof data[0]?.[field] === 'number') {
+        stats[field] = {
+          min: Math.min(...data.map(row => row[field])),
+          max: Math.max(...data.map(row => row[field])),
+          avg: data.reduce((sum, row) => sum + row[field], 0) / data.length
+        };
+      }
+    });
+    setSacramentTableStats(stats);
+  }
 
-    const formatData = {
-      transaction_logs: (log) => [
-        new Date(log.timestamp).toLocaleString(),
-        log.table_name,
-        log.action,
-        log.record_id,
-        log.performed_by,
-        log.performed_by_email,
-        JSON.stringify(log.old_data),
-        JSON.stringify(log.new_data)
-      ],
-      deleted_records: (record) => [
-        new Date(record.deleted_at).toLocaleString(),
-        record.original_table,
-        record.record_id,
-        record.deleted_by,
-        record.deleted_by_email,
-        JSON.stringify(record.record_data)
-      ]
-    };
+  const displaySacramentForm = async (title, id, selectedSacrament) => {
+    console.log("Selected Sacrament: ", selectedSacrament);
+    setCardOpen(!cardOpen);
+    setCardTitle(title);
+    setCardContent(await fetchSacramentForms(id, selectedSacrament));
+  }                                    
 
-    const csvContent = [
-      headers[filename].join(','),
-      ...data.map(formatData[filename]).map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${filename}_${new Date().toISOString()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setFormData({});
-    setEditingRecord(null);
-  };
 
   if (authLoading) {
     return (
@@ -1022,7 +1239,7 @@ const AdminDashboard = () => {
             variant="outlined"
             startIcon={<HistoryIcon />}
             onClick={handleViewLogs}
-            sx={{ mr: 2 }}
+            sx={{ mr: 2, color: '#6B5F32' }}
           >
             View Logs
           </Button>
@@ -1030,14 +1247,14 @@ const AdminDashboard = () => {
             variant="outlined"
             startIcon={<DeleteForeverIcon />}
             onClick={handleViewDeleted}
-            sx={{ mr: 2 }}
+            sx={{ mr: 2, color: '#6B5F32' }}
           >
             View Trash
           </Button>
           <Button
             variant="outlined"
             onClick={() => navigate('/admin/approved-calendar')}
-            sx={{ mr: 2 }}
+            sx={{ mr: 2, color: '#6B5F32' }}
           >
             Approved Bookings Calendar
           </Button>
@@ -1105,15 +1322,150 @@ const AdminDashboard = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Total Donations
+                Total Admins
               </Typography>
               <Typography variant="h4">
-                {stats.totalDonations}
+                {stats.totalAdmins}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Priests
+              </Typography>
+              <Typography variant="h4">
+                {stats.totalPriests}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Available Priests
+              </Typography>
+              <Typography variant="h4">
+                {stats.availablePriests}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Most Common Sacrament
+              </Typography>
+              <Typography variant="h4">
+                {stats.mostCommonSacraments}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {/* Data Analytics */}
+      <Typography variant="h5" sx={{ mb: 2 }}>
+        Data Analytics
+      </Typography>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-5">
+        {/* Gender Pie Chart */}
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <h3 className="text-xl font-semibold mb-2">User Gender Distribution</h3>
+          <PieChart width={250} height={250} className='mx-auto'>
+            <Pie
+              data={stats.genderCounts}
+              dataKey="value"
+              nameKey="name"
+              outerRadius={100}
+              
+            >
+              {stats.genderCounts.map((_, idx) => (
+                <Cell key={`${_.name}`} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            {/* <Legend 
+              verticalAlign="bottom" 
+              height={36}
+              formatter={(value, entry) => `${value}: ${entry.payload.value}`}
+            /> */}
+          </PieChart>
+          <PieChartLegend data={stats.genderCounts} colors={CHART_COLORS} />
+        </div>
+
+        {/* Pending Bookings by Sacrament */}
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <h3 className="text-xl font-semibold mb-2">Pending Bookings by Sacrament</h3>
+          <BarChart width={250} height={250} data={stats.pendingBySacrament} className='mx-auto'>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="sacrament" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="count">
+              {stats.pendingBySacrament.map((entry, index) => (
+                <Cell key={`cell-${entry.sacrament}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+          <BarChartLegend data={stats.pendingBySacrament} colors={CHART_COLORS} />
+        </div>
+
+        {/* Monthly Donations Line Chart */}
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <h3 className="text-xl font-semibold mb-2">Monthly Donations (Last 6 Months)</h3>
+          <LineChart width={250} height={250} data={stats.monthlyDonations} className='mx-auto'>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="month" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="amount" />
+          </LineChart>
+        </div>
+
+        {/* Donation Summary */}
+        <div className='bg-white p-4 rounded-2xl shadow text-center'>
+          <h3 className="text-xl font-semibold mb-2">Donation Summary</h3>
+          <div className='overflow-x-auto'>
+            <table className='min-w-full border-separate border-spacing-0 rounded-2xl overflow-hidden shadow-sm'>
+              <thead className='bg-gray-100'>
+                <th className="px-4 py-2 border text-left">Donation Period</th>
+                <th className="px-4 py-2 border">Amount</th>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-4 py-2 border text-left">Today</td>
+                  <td className="px-4 py-2 border font-bold">{stats.donationSummary.today}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 border text-left">Past 7 Days</td>
+                  <td className="px-4 py-2 border font-bold">{stats.donationSummary.lastWeek}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 border text-left">This Month</td>
+                  <td className="px-4 py-2 border font-bold">{stats.donationSummary.thisMonth}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 border text-left">Monthly Average</td>
+                  <td className="px-4 py-2 border font-bold">{stats.donationSummary.average}</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 border text-left">Year-to-Date Total</td>
+                  <td className="px-4 py-2 border font-bold">{stats.donationSummary.yearTotal}</td>
+                </tr>
+              </tbody>
+            </table>
+
+          </div>
+
+
+        </div>
+      </div>
+
 
       {success && (
         <Alert 
@@ -1137,22 +1489,403 @@ const AdminDashboard = () => {
         </Alert>
       )}
 
+      {/* --- Sacrament Service Tables --------------------------------------------------------------------- */}
+      {/* --- Sacrament Service Tables --------------------------------------------------------------------- */}
+      {/* --- Sacrament Service Tables --------------------------------------------------------------------- */}
+      {/* --- Sacrament Service Tables --------------------------------------------------------------------- */}
+      {/* --- Sacrament Service Tables --------------------------------------------------------------------- */}
+      <div className='mb-4'>
+        <Box display="flex" gap={2}>
+          {/* Tables Sidebar */}
+          <Paper sx={{ p: 2, width: '200px' }} >
+            <Typography variant="h6" gutterBottom>
+              Sacrament Bookings
+            </Typography>
+            {bookingTables.map((sacrament) => {
+              return (
+                <>
+                  <Button
+                    key={sacrament}
+                    fullWidth
+                    variant={selectedSacrament === sacrament ? 'contained' : 'text'}
+                    onClick={() => handleSacramentTableSelect(sacrament)}
+                    
+                    sx={{ justifyContent: 'flex-center', mb: 1 }}
+                  >
+                    <span className='text-[#6B5F32] font-bold'>
+                      {BOOKING_TABLE_STRUCTURES[sacrament]?.displayName || sacrament}
+                    </span>
+                  </Button>
+                </>
+              );
+            }
+            )}
+          </Paper>
+
+          <Paper sx={{ p: 2, flex: 1 }}>
+            {bookingLoading ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
+              </Box>
+            ) : selectedSacrament ? (
+              <>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6">
+                    {getDisplaySacrament(selectedSacrament)}
+                  </Typography>
+                  <Box>
+                    <Button
+                      variant="outlined"
+                      startIcon={<FilterListIcon />}
+                      onClick={(e) => handleFilterClick(e, setSacramentFilterAnchorEl)}
+                      sx={{ mr: 1, color: '#6B5F32' }}
+                    >
+                      Filters
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<ViewColumnIcon />}
+                      onClick={(e) => handleColumnClick(e, setSacramentColumnAnchorEl)}
+                      sx={{ mr: 1, color: '#6B5F32' }}
+                    >
+                      Columns
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<SaveAltIcon />}
+                      onClick={() => exportToCSV(sacramentFilteredData, selectedSacrament)}
+                      sx={{ mr: 1,  color: '#6B5F32' }}
+                    >
+                      Export
+                    </Button>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => handleSacramentAdd({
+                        selectedSacrament, 
+                        setFormData, 
+                        setEditingRecord, 
+                        setOpenSacramentDialog
+                      })}
+                    >
+                      Add New
+                    </Button>
+                  </Box>
+                </Box>
+                {/* Table Statistics */}
+                {Object.keys(sacramentTableStats).length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>Statistics</Typography>
+                    <Grid container spacing={2}>
+                      {Object.entries(sacramentTableStats).map(([field, stats]) => (
+                        <Grid item xs={12} sm={4} key={field}>
+                          <Card>
+                            <CardContent>
+                              <Typography color="textSecondary" gutterBottom>
+                                {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </Typography>
+                              <Typography variant="body2">
+                                Min: {stats.min.toFixed(2)} | Max: {stats.max.toFixed(2)} | Avg: {stats.avg.toFixed(2)}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                )}
+
+                {/* Search with Autocomplete */}
+                <Autocomplete
+                  freeSolo
+                  options={[]}
+                  value={sacramentSearchQuery}
+                  onChange={(event, newValue) => {
+                    setSacramentSearchQuery(newValue);
+                    applyFilters({
+                      tableData: sacramentTableData,
+                      searchQuery: newValue,
+                      activeFilters: sacramentActiveFilters,
+                      sortConfig: sacramentSortConfig,
+                      setFilteredData: setSacramentFilteredData,
+                      calculateTableStats: sacramentCalculateTableStats,
+                    });
+                  }}
+                  onInputChange={(event, newValue) => {
+                    setSacramentSearchQuery(newValue);
+                    applyFilters({
+                      tableData: sacramentTableData,
+                      searchQuery: newValue,
+                      activeFilters: sacramentActiveFilters,
+                      sortConfig: sacramentSortConfig,
+                      setFilteredData: setSacramentFilteredData,
+                      calculateTableStats: sacramentCalculateTableStats,
+                    });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                      variant="outlined"
+                      placeholder="Search..."
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+
+                {/* Active Filters Display */}
+                {Object.entries(sacramentActiveFilters).some(([_, filter]) => filter.value) && (
+                  <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {Object.entries(sacramentActiveFilters).map(([field, { value, type }]) => (
+                      value && (
+                        <Chip
+                          key={field}
+                          label={`${field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${value} (${type})`}
+                          onDelete={() => {
+                            const newFilters = { ...sacramentActiveFilters };
+                            delete newFilters[field];
+                            setSacramentActiveFilters(newFilters);
+                            applyFilters({
+                              tableData: sacramentTableData,
+                              searchQuery: sacramentSearchQuery,
+                              activeFilters: newFilters,
+                              sortConfig: sacramentSortConfig,
+                              setFilteredData: setSacramentFilteredData,
+                              calculateTableStats: sacramentCalculateTableStats,
+                            });
+                          }}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      )
+                    ))}
+                  </Box>
+                )}
+
+                {/* Filter Menu */}
+                <Menu
+                  anchorEl={sacramentFilterAnchorEl}
+                  open={Boolean(sacramentFilterAnchorEl)}
+                  onClose={() => setSacramentFilterAnchorEl(null)}
+                  PaperProps={{
+                    style: {
+                      maxHeight: 400,
+                      width: '300px',
+                    },
+                  }}
+                >
+                  {BOOKING_TABLE_STRUCTURES[selectedSacrament]?.fields.map((field) => (
+                    <Box key={field} sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={sacramentActiveFilters[field]?.value || ''}
+                        onChange={(e) => handleFilterChange(true, field, e.target.value)}
+                        placeholder="Filter value..."
+                      />
+                      <Box sx={{ mt: 1 }}>
+                        <FormControl size="small" fullWidth>
+                          <Select
+                            value={sacramentActiveFilters[field]?.type || 'contains'}
+                            onChange={(e) => handleFilterChange(true, field, sacramentActiveFilters[field]?.value || '', e.target.value)}
+                            size="small"
+                          >
+                            <MenuItem value="contains">Contains</MenuItem>
+                            <MenuItem value="equals">Equals</MenuItem>
+                            <MenuItem value="starts">Starts with</MenuItem>
+                            <MenuItem value="ends">Ends with</MenuItem>
+                            {(field.includes('date') || field.includes('bday') || field.includes('timestamp')) && (
+                              <>
+                                <MenuItem value="older_to_newer">Older to Newer</MenuItem>
+                                <MenuItem value="newer_to_older">Newer to Older</MenuItem>
+                              </>
+                            )}
+                            {typeof sacramentTableData[0]?.[field] === 'number' && (
+                              <>
+                                <MenuItem value="greater">Greater than</MenuItem>
+                                <MenuItem value="less">Less than</MenuItem>
+                              </>
+                            )}
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    </Box>
+                  ))}
+                </Menu>
+
+                {/* Column Visibility Menu */}
+                <Menu
+                  anchorEl={sacramentColumnAnchorEl}
+                  open={Boolean(sacramentColumnAnchorEl)}
+                  onClose={() => setSacramentColumnAnchorEl(null)}
+                >
+                  {BOOKING_TABLE_STRUCTURES[selectedSacrament]?.fields.map((field) => (
+                    <MenuItem key={field}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={sacramentVisibleColumns[field] !== false}
+                            onChange={() => handleColumnToggle({setVisibleColumns: setSacramentVisibleColumns, field})}
+                          />
+                        }
+                        label={field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      />
+                    </MenuItem>
+                  ))}
+                </Menu>
+
+
+                {/* TABLE CONTENTS */}
+                <TableContainer sx={{ maxHeight: 440, overflow:'auto' }} className='rounded-2xl overflow-hidden shadow-lg'>
+                  <Table stickyHeader>
+                    <TableHead className='hover:bg-[#E1D5B8]'>
+                      <TableRow>
+                        {BOOKING_TABLE_STRUCTURES[selectedSacrament]?.fields
+                          .filter(field => sacramentVisibleColumns[field] !== false)
+                          .map((field) => (
+
+                            <TableCell 
+                              key={field}
+                              onClick={() => handleSacramentSort(field)}
+                              sx={{ 
+                                cursor: 'pointer',
+                                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
+                              }}
+                            >
+                              <Box display="flex" alignItems="center">
+                                {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                {sacramentSortConfig.key === field && (
+                                  <Box component="span" ml={1}>
+                                    {sacramentSortConfig.direction === 'asc' ? '↑' : '↓'}
+                                  </Box>
+                                )}
+                              </Box>
+                            </TableCell>
+                          ))}
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sacramentFilteredData
+                        .slice(sacramentPage * sacramentRowsPerPage, sacramentPage * sacramentRowsPerPage + sacramentRowsPerPage)
+                        .map((row, index) => (
+                          <TableRow key={index} className='hover:bg-[#F5F0E2]'>
+                            {BOOKING_TABLE_STRUCTURES[selectedSacrament]?.fields
+                              .filter(field => sacramentVisibleColumns[field] !== false)
+                              .map((field) => (
+                                <TableCell key={field}>
+                                  {field === 'form' ? 
+                                    selectedSacrament === 'baptism' ?
+                                      (<Button
+                                        onClick={() => { displaySacramentForm('Baptism Form', sacramentFilteredData[index].baptism_docu_id, selectedSacrament); }}
+                                        sx={{ color: '#6B5F32', '&:hover': { backgroundColor: '#E1D5B8', color: 'black' } }}>
+                                        View Form
+                                      </Button>)  
+                                    : selectedSacrament === 'burial' ?
+                                      (<Button
+                                        onClick={() => { displaySacramentForm('Burial Form', sacramentFilteredData[index].burial_docu_id, selectedSacrament); }}
+                                        sx={{ color: '#6B5F32', '&:hover': { backgroundColor: '#E1D5B8', color: 'black' } }}>
+                                        View Form
+                                      </Button>)  
+                                      : selectedSacrament === 'wedding' ?
+                                        (<Button
+                                          onClick={() => { displaySacramentForm('Wedding Form', sacramentFilteredData[index].wedding_docu_id, selectedSacrament); }}
+                                          sx={{ color: '#6B5F32', '&:hover': { backgroundColor: '#E1D5B8', color: 'black' } }}>
+                                          View Form
+                                        </Button>)
+                                        : formatDisplayValue(field, row[field])  
+                                  : formatDisplayValue(field, row[field])  
+                                  }
+                                </TableCell>
+                              ))}
+                            <TableCell>
+                              <Tooltip title="Edit">
+                                <IconButton onClick={() => handleSacramentEdit({
+                                  record: row,
+                                  setFormData,
+                                  setEditingRecord,
+                                  setOpenSacramentDialog,
+                                })}>
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete">
+                                <IconButton onClick={() => handleSacramentDelete(row.id)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                <TablePagination
+                  component="div"
+                  count={sacramentFilteredData.length}
+                  page={sacramentPage}
+                  onPageChange={(e, newPage) => setSacramentPage(newPage)}
+                  rowsPerPage={sacramentRowsPerPage}
+                  onRowsPerPageChange={(e) => handleChangeRowsPerPage(e, setSacramentRowsPerPage, setSacramentPage)}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                />
+              </>
+            ) : (
+              <div className='text-center flex flex-col items-center justify-center h-full'>
+                <ChurchOutlined sx={{ mb: 2, fontSize: 64 }} className='text-[#E1D5B8]' />
+                <Typography variant="h5" color="text.secondary">
+                  Select a sacrament to view the user booking records 
+                </Typography>
+              </div>
+            )}
+          </Paper>
+        </Box>
+      </div>
+
+      {/* --- Database Tables --- */}
+      {/* --- Database Tables --- */}
+      {/* --- Database Tables --- */}
+      {/* --- Database Tables --- */}
+      {/* --- Database Tables --- */}
       <Box display="flex" gap={2}>
+        {/* Tables Sidebar */}
         <Paper sx={{ p: 2, width: '200px' }}>
           <Typography variant="h6" gutterBottom>
-            Tables
+            Management
           </Typography>
-          {tables.map((table) => (
-            <Button
-              key={table}
-              fullWidth
-              variant={selectedTable === table ? 'contained' : 'text'}
-              onClick={() => handleTableSelect(table)}
-              sx={{ justifyContent: 'flex-start', mb: 1 }}
-            >
-              {TABLE_STRUCTURES[table]?.displayName || table}
-            </Button>
-          ))}
+          {tables.map((table) => {
+            return (
+              <>
+                <Button
+                  key={table}
+                  fullWidth
+                  variant={selectedTable === table ? 'contained' : 'text'}
+                  onClick={() => handleTableSelect(table)}
+                  sx={{ justifyContent: 'flex-center', mb: 1 }}
+                >
+                   <span className='text-[#6B5F32] font-bold'>
+                    {TABLE_STRUCTURES[table]?.displayName || table}
+                   </span>
+                </Button>
+                {table === 'request_tbl' && (
+                  <Divider sx={{ my: 1 }} />
+                )}
+              </>
+            );
+          }
+          )}
         </Paper>
 
         <Paper sx={{ p: 2, flex: 1 }}>
@@ -1170,16 +1903,16 @@ const AdminDashboard = () => {
                   <Button
                     variant="outlined"
                     startIcon={<FilterListIcon />}
-                    onClick={handleFilterClick}
-                    sx={{ mr: 1 }}
+                    onClick={(e) => handleFilterClick(e, setFilterAnchorEl)}
+                    sx={{ mr: 1, color: '#6B5F32' }}
                   >
                     Filters
                   </Button>
                   <Button
                     variant="outlined"
                     startIcon={<ViewColumnIcon />}
-                    onClick={handleColumnClick}
-                    sx={{ mr: 1 }}
+                    onClick={(e) => handleColumnClick(e, setColumnAnchorEl)}
+                    sx={{ mr: 1, color: '#6B5F32' }}
                   >
                     Columns
                   </Button>
@@ -1187,14 +1920,19 @@ const AdminDashboard = () => {
                     variant="outlined"
                     startIcon={<SaveAltIcon />}
                     onClick={() => exportToCSV(filteredData, selectedTable)}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 1, color: '#6B5F32' }}
                   >
                     Export
                   </Button>
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={handleAdd}
+                    onClick={() => handleAdd({
+                      selectedTable, 
+                      setFormData, 
+                      setEditingRecord, 
+                      setOpenDialog
+                    })}
                   >
                     Add New
                   </Button>
@@ -1231,11 +1969,25 @@ const AdminDashboard = () => {
                 value={searchQuery}
                 onChange={(event, newValue) => {
                   setSearchQuery(newValue);
-                  applyFilters();
+                  applyFilters({
+                    tableData,
+                    searchQuery: newValue,
+                    activeFilters,
+                    sortConfig,
+                    setFilteredData,
+                    calculateTableStats,
+                  });
                 }}
                 onInputChange={(event, newValue) => {
                   setSearchQuery(newValue);
-                  applyFilters();
+                  applyFilters({
+                    tableData,
+                    searchQuery: newValue,
+                    activeFilters,
+                    sortConfig,
+                    setFilteredData,
+                    calculateTableStats,
+                  });
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -1265,12 +2017,17 @@ const AdminDashboard = () => {
                         key={field}
                         label={`${field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}: ${value} (${type})`}
                         onDelete={() => {
-                          setActiveFilters(prev => {
-                            const newFilters = { ...prev };
-                            delete newFilters[field];
-                            return newFilters;
+                          const newFilters = { ...activeFilters };
+                          delete newFilters[field];
+                          setActiveFilters(newFilters);
+                          applyFilters({
+                            tableData,
+                            searchQuery,
+                            activeFilters: newFilters,
+                            sortConfig,
+                            setFilteredData,
+                            calculateTableStats,
                           });
-                          applyFilters();
                         }}
                         color="primary"
                         variant="outlined"
@@ -1284,7 +2041,7 @@ const AdminDashboard = () => {
               <Menu
                 anchorEl={filterAnchorEl}
                 open={Boolean(filterAnchorEl)}
-                onClose={handleFilterClose}
+                onClose={() => setFilterAnchorEl(null)}
                 PaperProps={{
                   style: {
                     maxHeight: 400,
@@ -1301,14 +2058,14 @@ const AdminDashboard = () => {
                       fullWidth
                       size="small"
                       value={activeFilters[field]?.value || ''}
-                      onChange={(e) => handleFilterChange(field, e.target.value)}
+                      onChange={(e) => handleFilterChange(false, field, e.target.value)}
                       placeholder="Filter value..."
                     />
                     <Box sx={{ mt: 1 }}>
                       <FormControl size="small" fullWidth>
                         <Select
                           value={activeFilters[field]?.type || 'contains'}
-                          onChange={(e) => handleFilterChange(field, activeFilters[field]?.value || '', e.target.value)}
+                          onChange={(e) => handleFilterChange(false, field, activeFilters[field]?.value || '', e.target.value)}
                           size="small"
                         >
                           <MenuItem value="contains">Contains</MenuItem>
@@ -1338,7 +2095,7 @@ const AdminDashboard = () => {
               <Menu
                 anchorEl={columnAnchorEl}
                 open={Boolean(columnAnchorEl)}
-                onClose={handleColumnClose}
+                onClose={() => setColumnAnchorEl(null)}
               >
                 {TABLE_STRUCTURES[selectedTable]?.fields.map((field) => (
                   <MenuItem key={field}>
@@ -1346,7 +2103,7 @@ const AdminDashboard = () => {
                       control={
                         <Checkbox
                           checked={visibleColumns[field] !== false}
-                          onChange={() => handleColumnToggle(field)}
+                          onChange={() => handleColumnToggle({setVisibleColumns, field})}
                         />
                       }
                       label={field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -1355,13 +2112,16 @@ const AdminDashboard = () => {
                 ))}
               </Menu>
 
-              <TableContainer sx={{ maxHeight: 440 }}>
+
+              {/* TABLE CONTENTS */}
+              <TableContainer sx={{ maxHeight: 440, overflow:'auto' }} className='rounded-2xl shadow-lg'>
                 <Table stickyHeader>
-                  <TableHead>
+                  <TableHead className='hover:bg-[#E1D5B8]'>
                     <TableRow>
                       {TABLE_STRUCTURES[selectedTable]?.fields
                         .filter(field => visibleColumns[field] !== false)
                         .map((field) => (
+
                           <TableCell 
                             key={field}
                             onClick={() => handleSort(field)}
@@ -1387,17 +2147,22 @@ const AdminDashboard = () => {
                     {filteredData
                       .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                       .map((row, index) => (
-                        <TableRow key={index}>
+                        <TableRow key={index} className='hover:bg-[#F5F0E2]'>
                           {TABLE_STRUCTURES[selectedTable]?.fields
                             .filter(field => visibleColumns[field] !== false)
                             .map((field) => (
                               <TableCell key={field}>
-                                {formatValue(row[field])}
+                                {formatDisplayValue(field, row[field])}
                               </TableCell>
                             ))}
                           <TableCell>
                             <Tooltip title="Edit">
-                              <IconButton onClick={() => handleEdit(row)}>
+                              <IconButton onClick={() => handleEdit({
+                                record: row,
+                                setFormData,
+                                setEditingRecord,
+                                setOpenDialog,
+                              })}>
                                 <EditIcon />
                               </IconButton>
                             </Tooltip>
@@ -1417,16 +2182,19 @@ const AdminDashboard = () => {
                 component="div"
                 count={filteredData.length}
                 page={page}
-                onPageChange={handleChangePage}
+                onPageChange={(e, newPage) => setPage(newPage)}
                 rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+                onRowsPerPageChange={(e) => handleChangeRowsPerPage(e, setRowsPerPage, setPage)}
                 rowsPerPageOptions={[5, 10, 25, 50]}
               />
             </>
           ) : (
-            <Typography variant="body1" color="text.secondary">
-              Select a table to view its data
-            </Typography>
+            <div className='text-center flex flex-col items-center justify-center h-full'>
+              <TableChart sx={{ mb: 2, fontSize: 64 }} className='text-[#E1D5B8]' />
+              <Typography variant="h5" color="text.secondary">
+                Select a table to view its data
+              </Typography>
+            </div>
           )}
         </Paper>
       </Box>
@@ -1442,10 +2210,16 @@ const AdminDashboard = () => {
       >
         <DialogTitle>Deleted Records</DialogTitle>
         <DialogContent>
-          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
-            <Tab label="All" />
+          <Tabs 
+            value={activeTab} 
+            onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}
+            variant="scrollable"
+            scrollButtons="auto"
+            
+          >
+            <Tab label="All" sx={{ color: '#000'}} />
             {tables.map((table) => (
-              <Tab key={table} label={TABLE_STRUCTURES[table]?.displayName || table} />
+              <Tab key={table} label={TABLE_STRUCTURES[table]?.displayName || table} sx={{ color: '#000'}} />
             ))}
           </Tabs>
           <TableContainer>
@@ -1469,6 +2243,9 @@ const AdminDashboard = () => {
                 ) : (
                   deletedRecords
                     .filter(record => activeTab === 0 || record.original_table === tables[activeTab - 1])
+                    .filter(record => record.original_table !== 'booking_wedding_docu_tbl') // Filter out tables that are just for booking documents
+                    .filter(record => record.original_table !== 'booking_burial_docu_tbl') // Filter out tables that are just for booking documents
+                    .filter(record => record.original_table !== 'booking_baptism_docu_tbl') // Filter out tables that are just for booking documents
                     .map((record) => (
                       <TableRow key={record.id} className="hover:bg-gray-50">
                         <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1495,7 +2272,7 @@ const AdminDashboard = () => {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handlePermanentDelete(record.id)}
+                            onClick={() => handlePermanentDelete(record)}
                             className="text-red-600 hover:text-red-900"
                             title="Permanently delete"
                           >
@@ -1515,16 +2292,67 @@ const AdminDashboard = () => {
           <Button 
             onClick={() => setOpenDeletedDialog(false)}
             aria-label="Close dialog"
+            className='hover:text-black'
+            sx={{ color: '#6B5F32' }}
           >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Sacrament Form Dialogs */}
+      <SacramentFormCard
+        cardOpen={cardOpen}
+        setCardOpen={setCardOpen}
+        title={cardTitle}
+      >
+        {cardTitle === 'Baptism Form' && (
+          <BaptismSacramentForm data={cardContent} />
+        )}
+        {cardTitle === 'Burial Form' && (
+          <BurialSacramentForm data={cardContent} /> 
+        )}
+        {cardTitle === 'Wedding Form' && (
+          <WeddingSacramentForm data={cardContent} />
+        )}
+      </SacramentFormCard>
+
+
+      <AdminSacramentDialog 
+        openDialog = {openSacramentDialog}
+        editingRecord={editingRecord}
+        error={error}
+        sacrament={selectedSacrament}
+        formData={formData}
+        setFormData={setFormData}
+        users={users}
+        handleCloseDialog={() => handleCloseSacramentDialog({
+          setOpenSacramentDialog,
+          setFormData,
+          setEditingRecord,
+        })}
+        handleSave={() => handleSacramentSave({
+          BOOKING_TABLE_STRUCTURES,
+          selectedSacrament,
+          formData,
+          editingRecord,
+          sacramentTableData,
+          adminData,
+          setError,
+          setSuccess,
+          setOpenSacramentDialog,
+          handleSacramentTableSelect,
+          fetchStats,
+        })}
+      />
       {/* Add/Edit Dialog */}
       <Dialog 
         open={openDialog} 
-        onClose={handleCloseDialog} 
+        onClose={() => handleCloseDialog({
+          setOpenDialog,
+          setFormData,
+          setEditingRecord,
+        })} 
         maxWidth="md" 
         fullWidth
       >
@@ -1625,7 +2453,7 @@ const AdminDashboard = () => {
                     <option value="rather not to tell">Rather not to tell</option>
                   </TextField>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                {/* <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     select
@@ -1642,55 +2470,7 @@ const AdminDashboard = () => {
                     <option value="married">Married</option>
                     <option value="widow">Widow</option>
                   </TextField>
-                </Grid>
-                {!editingRecord && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password || ''}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required
-                        margin="dense"
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                          endAdornment: (
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                            >
-                              {showPassword ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Confirm Password"
-                        type={showConfirmPassword ? 'text' : 'password'}
-                        value={formData.confirmPassword || ''}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                        required
-                        margin="dense"
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                          endAdornment: (
-                            <IconButton
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              edge="end"
-                            >
-                              {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                  </>
-                )}
+                </Grid> */}
               </Grid>
             )}
 
@@ -1735,6 +2515,8 @@ const AdminDashboard = () => {
                     <option value="Baptism">Baptism</option>
                     <option value="Confession">Confession</option>
                     <option value="Anointing of the Sick">Anointing of the Sick</option>
+                    <option value="First Communion">First Communion</option>
+                    <option value="Burial">Burial</option>
                   </TextField>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1808,6 +2590,25 @@ const AdminDashboard = () => {
                     }}
                   />
                 </Grid>
+                {editingRecord && (
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            select
+                            label="Is Service Fee Paid?"
+                            value={formData.paid || (editingRecord ? '' : false)}
+                            onChange={(e) => setFormData({ ...formData, paid: e.target.value === 'true' })}
+                            required
+                            margin="dense"
+                            InputLabelProps={{ shrink: true }}
+                            SelectProps={{ native: true }}
+                            >
+                            <option value="">Select Payment Status</option>
+                            <option value="true">Paid</option>
+                            <option value="false">Not Yet Paid</option>
+                        </TextField>
+                    </Grid>
+                )}
               </Grid>
             )}
 
@@ -1955,42 +2756,67 @@ const AdminDashboard = () => {
             )}
 
             {selectedTable === 'donation_tbl' && (
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Amount"
-                    type="number"
-                    value={formData.donation_amount || ''}
-                    onChange={(e) => setFormData({ ...formData, donation_amount: e.target.value })}
-                    required
-                    margin="dense"
-                    InputLabelProps={{ shrink: true }}
-                  />
+              <>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="User"
+                      value={formData.user_id || ''}
+                      onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                      SelectProps={{ native: true }}
+                      disabled={editingRecord}
+                    >
+                      <option value="">Select a user</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.user_firstname} {user.user_lastname} ({user.user_email})
+                        </option>
+                      ))}
+                    </TextField>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Intercession"
-                    value={formData.donation_intercession || ''}
-                    onChange={(e) => setFormData({ ...formData, donation_intercession: e.target.value })}
-                    required
-                    margin="dense"
-                    InputLabelProps={{ shrink: true }}
-                  />
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Amount"
+                      type="number"
+                      value={formData.donation_amount || ''}
+                      onChange={(e) => setFormData({ ...formData, donation_amount: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Intercession"
+                      value={formData.donation_intercession || ''}
+                      onChange={(e) => setFormData({ ...formData, donation_intercession: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
                 </Grid>
-              </Grid>
+              </>
             )}
 
-            {selectedTable === 'employee_tbl' && (
+            {selectedTable === 'admin_tbl' && (
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Email"
                     type="email"
-                    value={formData.employee_email || ''}
-                    onChange={(e) => setFormData({ ...formData, employee_email: e.target.value })}
+                    value={formData.admin_email || ''}
+                    onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
@@ -2000,8 +2826,8 @@ const AdminDashboard = () => {
                   <TextField
                     fullWidth
                     label="First Name"
-                    value={formData.employee_firstname || ''}
-                    onChange={(e) => setFormData({ ...formData, employee_firstname: e.target.value })}
+                    value={formData.admin_firstname || ''}
+                    onChange={(e) => setFormData({ ...formData, admin_firstname: e.target.value })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
@@ -2011,8 +2837,8 @@ const AdminDashboard = () => {
                   <TextField
                     fullWidth
                     label="Last Name"
-                    value={formData.employee_lastname || ''}
-                    onChange={(e) => setFormData({ ...formData, employee_lastname: e.target.value })}
+                    value={formData.admin_lastname || ''}
+                    onChange={(e) => setFormData({ ...formData, admin_lastname: e.target.value })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
@@ -2022,8 +2848,8 @@ const AdminDashboard = () => {
                   <TextField
                     fullWidth
                     label="Mobile"
-                    value={formData.employee_mobile || ''}
-                    onChange={(e) => setFormData({ ...formData, employee_mobile: e.target.value })}
+                    value={formData.admin_mobile || ''}
+                    onChange={(e) => setFormData({ ...formData, admin_mobile: e.target.value })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
@@ -2034,14 +2860,14 @@ const AdminDashboard = () => {
                     fullWidth
                     label="Birthday"
                     type="date"
-                    value={formData.employee_bday || ''}
-                    onChange={(e) => setFormData({ ...formData, employee_bday: e.target.value })}
+                    value={formData.admin_bday || ''}
+                    onChange={(e) => setFormData({ ...formData, admin_bday: e.target.value })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                {/* <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
                     select
@@ -2057,7 +2883,7 @@ const AdminDashboard = () => {
                     <option value="admin">Admin</option>
                     <option value="employee">Employee</option>
                   </TextField>
-                </Grid>
+                </Grid> */}
               </Grid>
             )}
 
@@ -2101,70 +2927,123 @@ const AdminDashboard = () => {
                     fullWidth
                     select
                     label="Availability"
-                    value={formData.priest_availability || ''}
-                    onChange={(e) => setFormData({ ...formData, priest_availability: e.target.value })}
+                    value={formData.priest_availability === null ? '' : formData.priest_availability ? 'Available' : 'Unavailable'}
+                    onChange={(e) => setFormData({ ...formData, priest_availability: e.target.value === 'Available' ? true : false })}
                     required
                     margin="dense"
                     InputLabelProps={{ shrink: true }}
                     SelectProps={{ native: true }}
                   >
                     <option value="">Select Availability</option>
-                    <option value="available">Available</option>
-                    <option value="unavailable">Unavailable</option>
+                    <option value="Available">Available</option>
+                    <option value="Unavailable">Unavailable</option>
                   </TextField>
                 </Grid>
               </Grid>
             )}
 
             {selectedTable === 'request_tbl' && (
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    select
-                    label="Baptism Certificate"
-                    value={formData.request_baptismcert || ''}
-                    onChange={(e) => setFormData({ ...formData, request_baptismcert: e.target.value })}
-                    required
-                    margin="dense"
-                    InputLabelProps={{ shrink: true }}
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Select Option</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </TextField>
+              <>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="User"
+                      value={formData.user_id || ''}
+                      onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                      SelectProps={{ native: true }}
+                      disabled={editingRecord}
+                    >
+                      <option value="">Select a user</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.user_firstname} {user.user_lastname} ({user.user_email})
+                        </option>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Document ID"
+                      value={formData.document_id || ''}
+                      onChange={(e) => setFormData({ ...formData, document_id: e.target.value })}
+                      // required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                      >
+                    </TextField>
+                  </Grid>
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    select
-                    label="Confirmation Certificate"
-                    value={formData.request_confirmationcert || ''}
-                    onChange={(e) => setFormData({ ...formData, request_confirmationcert: e.target.value })}
-                    required
-                    margin="dense"
-                    InputLabelProps={{ shrink: true }}
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Select Option</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </TextField>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Baptism Certificate"
+                      value={formData.request_baptismcert || ''}
+                      onChange={(e) => setFormData({ ...formData, request_baptismcert: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                      SelectProps={{ native: true }}
+                      >
+                      <option value="">Select Option</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Confirmation Certificate"
+                      value={formData.request_confirmationcert || ''}
+                      onChange={(e) => setFormData({ ...formData, request_confirmationcert: e.target.value })}
+                      required
+                      margin="dense"
+                      InputLabelProps={{ shrink: true }}
+                      SelectProps={{ native: true }}
+                      >
+                      <option value="">Select Option</option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </TextField>
+                  </Grid>
                 </Grid>
-              </Grid>
+              </>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button 
-            onClick={handleCloseDialog}
+            onClick={() => handleCloseDialog({
+              setOpenDialog,
+              setFormData,
+              setEditingRecord,
+            })}
             aria-label="Cancel"
           >
             Cancel
           </Button>
           <Button 
-            onClick={handleSave} 
+            onClick={() => handleSave({
+              TABLE_STRUCTURES,
+              selectedTable,
+              tableData,
+              formData,
+              editingRecord,
+              adminData,
+              setError,
+              setSuccess,
+              setOpenDialog,
+              handleTableSelect,
+              fetchStats,
+            })} 
             variant="contained"
             aria-label="Save changes"
           >
@@ -2189,6 +3068,7 @@ const AdminDashboard = () => {
               variant="outlined"
               startIcon={<SaveAltIcon />}
               onClick={() => exportToCSV(transactionLogs, 'transaction_logs')}
+              sx={{ color: '#6B5F32' }}
             >
               Export Logs
             </Button>
@@ -2268,6 +3148,8 @@ const AdminDashboard = () => {
           <Button 
             onClick={() => setOpenLogsDialog(false)}
             aria-label="Close logs"
+            className=' hover:text-black'
+            sx={{ color: '#6B5F32' }}
           >
             Close
           </Button>
