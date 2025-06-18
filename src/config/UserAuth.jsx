@@ -20,6 +20,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { supabase } from './supabase';
+import ForgotPasswordDialog from '../components/dialog/ForgotPasswordDialog';
 
 const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
   const [showLoginForm, setShowLoginForm] = useState(!isSignupMode);
@@ -27,8 +28,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
   const [loading, setLoading] = useState(false);
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
-  
- 
+  const [showForgotPasswordMessage, setShowForgotPasswordMessage] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -40,7 +40,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
     user_middle: '',
     user_lastname: '',
     user_gender: 'rather not to tell',
-    user_status: 'single',
+    user_status: '-',
     user_mobile: '',
     user_bday: null,
     user_email: '',
@@ -57,10 +57,15 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
       return false;
     }
 
-    if (!signupData.user_email.includes('@')) {
+    // if email is not valid
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.user_email)) {
       setError('Please enter a valid email address.');
       return false;
     }
+    // if (!signupData.user_email.includes('@')) {
+    //   setError('Please enter a valid email address.');
+    //   return false;
+    // }
 
     if (signupData.password.length < 6) {
       setError('Password must be at least 6 characters.');
@@ -76,6 +81,11 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
       setError('Mobile number must contain only numbers.');
       return false;
     }
+    if (!signupData.user_mobile.startsWith('09') || signupData.user_mobile.length !== 11) {
+      setError('Mobile number must be 11 digits long and start with 09.');
+      return false;
+    }
+
 
     // Age validation
     const today = new Date();
@@ -161,6 +171,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
         password: loginPassword,
       });
 
+
       if (authError) throw authError;
 
       if (authData?.user) {
@@ -187,7 +198,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
 
         // 4. Check if user is an employee
         const { data: employeeData } = await supabase
-          .from('employee_tbl')
+          .from('admin_tbl')
           .select('id, user_role')
           .eq('user_email', loginEmail)
           .single();
@@ -222,10 +233,24 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
     setError('');
   };
 
+  const toggleForgotPassword = () => {
+    setShowForgotPasswordMessage(!showForgotPasswordMessage);
+    setShowLoginForm(true);
+    setError('');
+  }
+
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: '#E1D5B8', color: 'white' }}>
-        {showVerificationMessage ? 'Email Verification Required' : (showLoginForm ? 'Login' : 'Sign Up')}
+      <DialogTitle sx={{ bgcolor: '#E1D5B8', color: 'black' }}>
+        {showVerificationMessage ? 
+          'Email Verification Required' :  
+          showForgotPasswordMessage ?
+            'Forgot Password' :
+              showLoginForm ? 
+                'Login' : 
+                'Sign Up'
+              
+        }
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
@@ -253,6 +278,11 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
                 Go to Login
               </Button>
             </Box>
+          ) : showForgotPasswordMessage ? (
+            <ForgotPasswordDialog 
+              onClose={onClose}
+              toggleForgotPassword={toggleForgotPassword}
+            />
           ) : showLoginForm ? (
             <form onSubmit={handleLogin}>
               <TextField
@@ -332,7 +362,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
                     </RadioGroup>
                   </FormControl>
                 </Grid>
-
+                {/*
                 <Grid item xs={12}>
                   <FormControl component="fieldset">
                     <FormLabel>Status</FormLabel>
@@ -347,6 +377,7 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
                     </RadioGroup>
                   </FormControl>
                 </Grid>
+                */}
 
                 <Grid item xs={12}>
                   <TextField
@@ -425,17 +456,27 @@ const LoginModal = ({ onClose, onLoginSuccess, isSignupMode }) => {
           )}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
-        {!showVerificationMessage && (
+      {!showForgotPasswordMessage && (
+        <DialogActions sx={{ p: 2, justifyContent: 'center', flexDirection: 'column' }}>
           <Button
-            onClick={toggleForm}
-            sx={{ color: '#E1D5B8' }}
+            onClick={toggleForgotPassword}
+            sx={{ color: '#6B5F32' }}
             disabled={loading}
           >
-            {showLoginForm ? "Don't have an account? Sign Up" : 'Already have an account? Login'}
+            Forgot Password?
           </Button>
-        )}
-      </DialogActions>
+          {!showVerificationMessage && (
+            <Button
+              onClick={toggleForm}
+              sx={{ color: '#6B5F32' }}
+              disabled={loading}
+            >
+              {showLoginForm ? "Don't have an account? Sign Up" : 'Already have an account? Login'}
+            </Button>
+          )}
+        </DialogActions>
+        
+      )}
     </Dialog>
   );
 };

@@ -3,6 +3,7 @@ import { Box, Button, TextField, Typography, CircularProgress } from '@mui/mater
 import SendIcon from '@mui/icons-material/Send';
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
+import Markdown from 'react-markdown'
 
 /**
  * Chatbot Component
@@ -14,7 +15,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState([
     { 
       role: 'model',
-      parts: [{ text: 'Welcome to SagradaGo Parish Information System! I can help you with:\n\n• Mass schedules and events\n• Parish activities and programs\n• Sacramental services\n• Donations and offerings\n• General parish information\n\nHow may I assist you today?' }]
+      parts: [{ text: `# Welcome to SagradaGo Parish Information System!\n\nI can help you with:\n\n- • Mass schedules and events\n- • Parish activities and programs\n- • Sacramental services\n- • Donations and offerings\n- • General parish information\n\nHow may I assist you today?`}]
     }
   ]);
   const [input, setInput] = useState(''); // Current input field value
@@ -119,26 +120,29 @@ const Chatbot = () => {
    * @param {number} i - The message index
    */
   const renderMessage = (msg, i) => (
-    <Box
-      key={i}
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
-        gap: 0.5
-      }}
-    >
-      <Box sx={{
-        background: msg.role === 'user' ? '#E1D5B8' : '#e3e3e3',
-        color: '#222',
-        borderRadius: 2,
-        p: 1.5,
-        maxWidth: '80%',
-        wordBreak: 'break-word'
-      }}>
-        <Typography variant="body1">{msg.parts[0].text}</Typography>
+    <>
+      <Box
+        key={i}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+          gap: 0.5
+        }}
+      >
+        <Box sx={{
+          background: msg.role === 'user' ? '#E1D5B8' : '#e3e3e3',
+          color: '#222',
+          borderRadius: 2,
+          p: 1.5,
+          maxWidth: '80%',
+          wordBreak: 'break-word'
+        }}>
+          {/* <Typography variant="body1">{msg.parts[0].text}</Typography> */}
+          <Markdown>{msg.parts[0].text}</Markdown>
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 
   // ===== Main Render =====
@@ -165,7 +169,7 @@ const Chatbot = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#6B5F32' }}>
               Parish Assistant
             </Typography>
             <Button onClick={() => setOpen(false)} sx={{ color: 'white', minWidth: 'auto' }}>
@@ -255,7 +259,7 @@ const Chatbot = () => {
           startIcon={<ChatIcon />}
           sx={{
             backgroundColor: '#E1D5B8',
-            color: 'white',
+            color: 'black',
             borderRadius: 4,
             px: 3,
             py: 1.5,

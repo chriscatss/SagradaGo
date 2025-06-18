@@ -21,9 +21,9 @@ const ProtectedRoute = ({ children }) => {
           return;
         }
 
-        // Check if user is an admin in employee_tbl
+        // Check if user is an admin in admin_tbl
         const { data: employeeData, error: employeeError } = await supabase
-          .from('employee_tbl')
+          .from('admin_tbl')
           .select('user_role')
           .eq('user_email', session.user.email)
           .single();

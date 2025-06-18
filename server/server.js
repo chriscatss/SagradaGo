@@ -3,16 +3,20 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 
 // ===== Server Configuration =====
 const app = express();
 const port = process.env.PORT || 5001;
+const supabase = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_SUPABASE_SERVICE_ROLE_KEY);
 
 // Log server configuration
 console.log('Environment check:');
 console.log('- PORT:', process.env.PORT || 5001);
 console.log('- NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('- API Key configured:', !!process.env.GEMINI_API_KEY);
+console.log('- Supabase URL:', process.env.REACT_APP_SUPABASE_URL ? 'Configured' : 'Not configured');
+console.log('- Supabase Service Role Key:', process.env.REACT_SUPABASE_SERVICE_ROLE_KEY ? 'Configured' : 'Not configured');
 
 // ===== Middleware Setup =====
 // Allow requests from frontend
@@ -76,19 +80,32 @@ app.post('/api/gemini', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    const systemPrompt = `You are a helpful virtual assistant for Sagrada Familia Parish Church, located at Sagrada Familia Parish, Sanctuary of the Holy Face of Manoppello, Manila, Philippines.
+      You are an expert in both church-related matters in the Philippines and the SagradaGo Parish Information System. In SagradaGo, users can:
+      • Book sacrament services — Wedding, Baptism, Confession, Anointing of the Sick, First Communion, and Burial — via the "Book a Service" feature.
+      • View upcoming church events on the "Events" page.
+      • Volunteer for church activities.
+      • Donate to support the church.
+      Only respond to questions related to the church or the SagradaGo system.
+      If the user asks about anything unrelated (e.g., random topics, general knowledge, or other locations), politely reply that you can only assist with Sagrada Familia Parish and its services.
+    `;
+
+
     // Format conversation history for Gemini API
-    const contents = history ? [
-      ...history.map(msg => ({
+    const contents = [
+      { 
+        role: 'user',
+        parts: [{ text: systemPrompt }]
+      },
+      ...(history ? history.map(msg => ({
         role: msg.role,
         parts: [{ text: msg.parts[0].text }]
-      })),
+      })) : []),
       {
         role: 'user',
         parts: [{ text: message }]
       }
-    ] : [{
-      parts: [{ text: message }]
-    }];
+    ];
 
     // Send request to Gemini API
     const response = await axios.post(
@@ -148,6 +165,52 @@ app.get('/api/health', async (req, res) => {
       apiKeyConfigured: !!process.env.GEMINI_API_KEY,
       apiTestSuccessful: false,
       details: error.response?.data || error.stack
+    });
+  }
+});
+
+app.post('/admin/createUser', async (req, res) => {
+  try {
+    const { email, randomPassword } = req.body;
+    if (!email || !randomPassword) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Email and random password are required',
+        user: null,
+        details: 'Missing email or random password in request body'
+      });
+    }
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `http://localhost:3000/set-password`,
+      // redirectTo: `${window.location.origin}/set-password`,
+    });
+
+    if (error) {
+      console.error('Error from Supabase:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: error,
+        details: error,
+        user: null
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'User has been invited to join SagradaGo. They are sent an invite link to set their password before accessing the system.',
+      details: 'User has been invited to join SagradaGo',
+      user: data.user
+    });
+
+    // Create a new user in the SagradaGo system
+
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: error.message || 'Failed to create user',
+      details: error.response?.data || error.stack ,
+      user: null
     });
   }
 });
